@@ -35,3 +35,8 @@ new companies. `--max-lookups` caps a run (default 600).
 
 - `data/companies.csv` — one row per company: tier, status, reason, fit score, vacancy counts, top vacancy, LinkedIn fields
 - `data/vacancies.csv` — every sales vacancy with role class, score, signals, link
+
+## Report
+
+`python report/build.py` renders `report/dealaris-prospects.html` (stats page, published as a claude.ai artifact)
+from `data/companies.csv` / `data/vacancies.csv`.

@@ -1,0 +1,166 @@
+<title>Dealaris Prospect Scan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@500;700&family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a single report column. Summary tiles, then the funnel, then the breakdown charts in a 2-up grid, then the prospect table */
+:root {
+  --bg: #f7f8fa; --surface: #ffffff; --line: #dfe3ea; --ink: #10151f; --ink-2: #4a5263; --ink-3: #737b8c;
+  --accent: #2a78d6; --accent-soft: #e4eefb; --tier-a: #b45f00; --tier-a-bg: #fff1dc; --tier-b: #1d6fb8; --tier-b-bg: #e3effb;
+  --tier-c: #5b6272; --tier-c-bg: #eef0f4; --warn-bg: #fff7e6; --warn-line: #f0c46b;
+  --f-display: "Onest", "Golos Text", system-ui, sans-serif; --f-body: "Golos Text", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f1218; --surface: #171b23; --line: #2a303c; --ink: #f2f4f8; --ink-2: #b9c0cd; --ink-3: #8a92a2;
+  --accent: #3987e5; --accent-soft: #1c2a3f; --tier-a: #f2a54a; --tier-a-bg: #3a2a14; --tier-b: #7cb6f2; --tier-b-bg: #18283c;
+  --tier-c: #aab1bf; --tier-c-bg: #232834; --warn-bg: #2d2617; --warn-line: #8a6a26; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0f1218; --surface: #171b23; --line: #2a303c; --ink: #f2f4f8; --ink-2: #b9c0cd; --ink-3: #8a92a2;
+  --accent: #3987e5; --accent-soft: #1c2a3f; --tier-a: #f2a54a; --tier-a-bg: #3a2a14; --tier-b: #7cb6f2; --tier-b-bg: #18283c;
+  --tier-c: #aab1bf; --tier-c-bg: #232834; --warn-bg: #2d2617; --warn-line: #8a6a26; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 1080px; margin: 0 auto; padding-inline: 20px; padding-block: 36px 64px; display: grid; gap: 40px; }
+header { display: grid; gap: 10px; }
+.eyebrow { font-family: var(--f-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+h1 { font-family: var(--f-display); font-weight: 700; font-size: clamp(28px, 4.4vw, 40px); line-height: 1.1; margin: 0; text-wrap: balance; }
+h2 { font-family: var(--f-display); font-weight: 700; font-size: 20px; margin: 0; text-wrap: balance; }
+.lede { color: var(--ink-2); max-width: 68ch; margin: 0; }
+.note { background: var(--warn-bg); border: 1px solid var(--warn-line); border-radius: 8px; padding: 12px 16px; max-width: 80ch; color: var(--ink); font-size: 14px; }
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 4px; align-content: start; }
+.tile b { font-family: var(--f-display); font-size: 32px; line-height: 1; font-variant-numeric: tabular-nums; }
+.tile span { color: var(--ink-2); font-size: 13px; }
+section { display: grid; gap: 14px; min-width: 0; }
+.sub { color: var(--ink-3); font-size: 13px; margin: -6px 0 0; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 36px 40px; }
+.bars { display: grid; gap: 8px; }
+.bar-row { display: grid; grid-template-columns: minmax(0, 15em) minmax(0, 1fr) 4.5em; gap: 12px; align-items: center; border-radius: 4px; outline: none; }
+.bar-row:hover .bar-fill, .bar-row:focus-visible .bar-fill { filter: brightness(1.15); }
+.bar-row:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
+.bar-label { font-size: 13.5px; color: var(--ink-2); overflow-wrap: anywhere; }
+.bar-track { height: 14px; display: block; }
+.bar-fill { display: block; height: 100%; background: var(--accent); border-radius: 0 4px 4px 0; min-width: 2px; }
+.bar-val { font-family: var(--f-mono); font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; color: var(--ink); }
+.funnel .bar-track { height: 22px; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.chip { font: 500 13px var(--f-body); color: var(--ink-2); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--ink); }
+.chip:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+input[type="search"] { font: 14px var(--f-body); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; min-width: 0; flex: 1 1 200px; max-width: 320px; }
+.count { color: var(--ink-3); font-size: 13px; margin-left: auto; }
+.table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; min-width: 760px; font-size: 14px; }
+th { text-align: left; font-weight: 600; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-3); padding: 10px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+td.num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+th.num { text-align: right; }
+.co { font-weight: 600; }
+.cls { color: var(--ink-3); font-size: 12.5px; margin-top: 2px; }
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+.tier { display: inline-block; font: 600 12px var(--f-mono); padding: 2px 8px; border-radius: 999px; }
+.tier-A { color: var(--tier-a); background: var(--tier-a-bg); }
+.tier-B { color: var(--tier-b); background: var(--tier-b-bg); }
+.tier-C { color: var(--tier-c); background: var(--tier-c-bg); }
+.flag { display: inline-block; font-size: 12px; color: var(--ink-2); border: 1px solid var(--line); border-radius: 4px; padding: 0 6px; margin-top: 4px; }
+.method { display: grid; gap: 8px; color: var(--ink-2); max-width: 80ch; font-size: 14px; }
+.method p { margin: 0; }
+.method code { font-family: var(--f-mono); font-size: 12.5px; background: var(--accent-soft); color: var(--ink); padding: 1px 5px; border-radius: 4px; }
+@media (max-width: 760px) {
+  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid2 { grid-template-columns: minmax(0, 1fr); }
+  .bar-row { grid-template-columns: minmax(0, 9.5em) minmax(0, 1fr) 4em; gap: 8px; }
+}
+@media (prefers-reduced-motion: no-preference) { .bar-fill { transition: filter .15s; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Польща · rocketjobs.pl, nofluffjobs.com, praca.pl · 4 жовтня 2026</div>
+    <h1>Хто зараз наймає людей на дзвінки</h1>
+    <p class="lede">Компанії з відкритими вакансіями в телефонних продажах, SDR/BDR, AE та high-ticket B2C. Скоринг показує, наскільки компанія схожа на покупця Dealaris: копайлот для живих дзвінків для команд малого й середнього бізнесу.</p>
+    <div class="note">{{NOTE}}</div>
+  </header>
+
+  <div class="tiles">
+    <div class="tile"><b>{{Q}}</b><span>компаній пройшли фільтри</span></div>
+    <div class="tile"><b>{{A}} + {{B}}</b><span>у tier A і B (fit ≥ 70)</span></div>
+    <div class="tile"><b>{{MULTI}}</b><span>наймають 3+ продажників одночасно</span></div>
+    <div class="tile"><b>{{LEADER}}</b><span>шукають керівника продажів</span></div>
+  </div>
+
+  <section>
+    <h2>Від оголошень до списку</h2>
+    <p class="sub">Дедуплікація вакансій за компанією, назвою й містом. Компанії зведені за нормалізованою назвою без правових форм.</p>
+    <div class="bars">{{FUNNEL}}</div>
+  </section>
+
+  <div class="grid2">
+    <section>
+      <h2>Вакансії за типом ролі</h2>
+      <p class="sub">Тільки кваліфіковані компанії, кількість вакансій</p>
+      <div class="bars">{{ROLES}}</div>
+    </section>
+    <section>
+      <h2>Компанії за tier</h2>
+      <p class="sub">A ≥ 80 · B ≥ 70 · C ≥ 60 · D &lt; 60 балів fit</p>
+      <div class="bars">{{TIERS}}</div>
+      <h2 style="margin-top:18px">Відсіяно</h2>
+      <div class="bars">{{DISQ}}</div>
+      <h2 style="margin-top:18px">Джерела</h2>
+      <p class="sub">Сирі оголошення з кожного борду</p>
+      <div class="bars">{{SRC}}</div>
+    </section>
+  </div>
+
+  <section>
+    <h2>Проспекти tier A–C</h2>
+    <div class="controls" role="group" aria-label="Фільтр за tier">
+      <button class="chip" id="t-all" data-t="ABC" aria-pressed="false">Усі</button>
+      <button class="chip" id="t-a" data-t="A" aria-pressed="false">A</button>
+      <button class="chip" id="t-ab" data-t="AB" aria-pressed="true">A + B</button>
+      <button class="chip" id="t-phone" data-t="PHONE" aria-pressed="false">Є телефонні ролі</button>
+      <input type="search" id="q" placeholder="Компанія, роль або місто" aria-label="Пошук">
+      <span class="count" id="count"></span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Tier</th><th>Компанія</th><th class="num">Fit</th><th class="num">Sales-вакансій</th><th class="num">Телефонних</th><th>Найсильніша вакансія</th><th>Місто</th><th class="num">Штат</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="method">
+    <h2>Як рахується fit</h2>
+    <p>Кожна вакансія отримує базовий бал за роллю з назви: telesales і call center 95, SDR/BDR 90, AE/B2B SaaS 80, high-ticket B2C 80, керівник продажів 70, specjalista ds. sprzedaży 60, account management 55. Роздріб і польові продажі дають 0. До бази додаються сигнали з опису: телефон, онлайн-зустрічі, віддалена робота, juniorи та онбординг, скрипти й CRM, комісія.</p>
+    <p>Fit компанії = найкраща вакансія × 0,6 + обсяг найму (до 20 балів, максимум на 6 вакансіях) + частка телефонних ролей (до 10) + 10, якщо компанія шукає керівника продажів, тобто нового покупця.</p>
+    <p>Обмеження: у rocketjobs.pl API віддає навички, а не повний опис, тож телефонні сигнали там недораховані. Pracuj.pl, OLX та Indeed закриті Cloudflare і не зібрані. Повні дані лежать у <code>data/companies.csv</code> і <code>data/vacancies.csv</code>.</p>
+  </section>
+</div>
+
+<script>
+const ROWS = {{ROWS}};
+const tbody = document.getElementById('rows'), countEl = document.getElementById('count'), q = document.getElementById('q');
+let mode = 'AB';
+const esc = s => String(s).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+function render() {
+  const term = q.value.trim().toLowerCase();
+  const list = ROWS.filter(r => (mode === 'PHONE' ? r.p > 0 : mode.includes(r.t)) &&
+    (!term || (r.n + ' ' + r.r + ' ' + r.c).toLowerCase().includes(term)));
+  tbody.innerHTML = list.map(r => `<tr>
+    <td><span class="tier tier-${r.t}">${r.t}</span></td>
+    <td><div class="co">${esc(r.n)}</div><div class="cls">${esc(r.cls.join(' · '))}</div>${r.l ? '<span class="flag">наймає керівника продажів</span>' : ''}</td>
+    <td class="num">${r.f.toFixed(1)}</td><td class="num">${r.v}</td><td class="num">${r.p}</td>
+    <td><a href="${esc(r.u)}" target="_blank" rel="noopener">${esc(r.r)}</a></td><td>${esc(r.c)}</td><td class="num">${r.li ? `<a href="${esc(r.li)}" target="_blank" rel="noopener">${esc(r.hc || '?')}</a>` : '—'}</td></tr>`).join('');
+  countEl.textContent = `${list.length} компаній`;
+}
+document.querySelectorAll('.chip').forEach(b => b.addEventListener('click', () => {
+  mode = b.dataset.t;
+  document.querySelectorAll('.chip').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  render();
+}));
+q.addEventListener('input', render);
+render();
+</script>

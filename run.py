@@ -90,8 +90,9 @@ def main():
         print(f"[unipile] {n} new lookups")
         for c in companies:
             hc = c["li_headcount"]
-            rng_hi = c["li_headcount_range"].split("-")[-1] if c["li_headcount_range"] else ""
-            size = hc if hc != "" else (int(rng_hi) if rng_hi.isdigit() else None)
+            # open-ended ranges ("10001-None") fall back to their lower bound
+            bounds = [b for b in c["li_headcount_range"].split("-") if b.isdigit()]
+            size = int(hc) if str(hc).isdigit() else (int(bounds[-1]) if bounds else None)
             if size is None or c["status"] != "qualified":
                 continue
             if size > MAX_HEAD:
@@ -125,6 +126,8 @@ def main():
             w.writeheader()
             w.writerows(rows)
     q = sum(c["status"] == "qualified" for c in companies)
+    (DATA / "run_stats.json").write_text(json.dumps({"raw_offers": len(offers), "unique_vacancies": len(vacs),
+                                                     "companies": len(companies), "qualified": q}))
     print(f"{len(offers)} offers -> {len(vacs)} unique vacancies -> {len(companies)} companies with sales roles -> {q} qualified")
 
 
