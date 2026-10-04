@@ -52,7 +52,7 @@ only allows outbound HTTPS on port 443 while Unipile DSNs use custom ports. On a
 ```
 git clone -b claude/sales-prospect-research-vlgnq1 https://github.com/nazaribih/job-boards-scrap
 cd job-boards-scrap && python3 -m venv .venv && . .venv/bin/activate && pip install -r requirements.txt
-python run.py --sources pracuj --merge --max-lookups 0   # opens Chrome; solve a Cloudflare check if one appears
+python run.py --sources pracuj --merge --max-lookups 0   # plain HTTP from a home IP; falls back to Chrome if Cloudflare blocks it
 export UNIPILE_DSN=... UNIPILE_TOKEN=... NAZARII_UNIPILE_LINKEDIN_ID=...
 python run.py --no-scrape --max-lookups 800               # LinkedIn headcount, ~1.5 h, resumable via cache
 python report/build.py
