@@ -11,22 +11,25 @@ python run.py --no-scrape  # re-score / enrich from data/raw_offers.json
 ```
 
 1. **Scrape** (own fetchers, public endpoints, no paid scraping APIs)
-   - rocketjobs.pl — JSON candidate API, category `sales`
+   - rocketjobs.pl — JSON candidate API, categories `sales`, `support`
    - nofluffjobs.com — search API, categories `sales`, `customerService`
-   - praca.pl — HTML listing, 19 phone/SDR/AE/high-ticket keywords
-   - pracuj.pl, olx.pl, indeed, theprotocol.it sit behind a Cloudflare challenge and are skipped.
+   - praca.pl, aplikuj.pl — HTML listings, 44 phone/SDR/AE/high-ticket keywords
+   - rocketjobs offer details — full description + employer size (`501+` → enterprise)
+   - pracuj.pl, olx.pl, indeed, gowork.pl, careerjet.pl, theprotocol.it sit behind a Cloudflare challenge and are skipped.
 2. **Score each vacancy** (`jbscrap/score.py`): role class from the title (telesales/call centre 95, SDR/BDR 90,
    AE/B2B SaaS 80, high-ticket B2C 80, sales leadership 70, …; retail/field sales 0) plus signals from the
    description (phone, online meetings, remote, junior/onboarding, scripts/CRM, commission).
 3. **Dedupe** vacancies (company + title + city) and companies (name normalised, legal forms stripped).
-4. **Company fit score** = best role × 0.6 + hiring volume (up to 20) + share of phone roles (up to 10)
-   + 10 if hiring a sales leader (new buyer). Tiers: A ≥ 80, B ≥ 70, C ≥ 60, D < 60.
+4. **Company fit score** = best role × 0.75 + hiring volume (up to 15) + share of phone roles (up to 5)
+   + 5 if hiring a sales leader (new buyer). Tiers: A ≥ 80, B ≥ 70, C ≥ 60, D < 60.
 5. **Disqualify** staffing agencies / hidden clients, known enterprise brands, and — once Unipile is available —
    anything with LinkedIn headcount > 200 or < 10.
 
 ## Unipile (LinkedIn headcount)
 
-Set in the environment: `UNIPILE_DSN`, `UNIPILE_API_KEY`, `UNIPILE_ACCOUNT_ID` (or `UNIPILE_ACCOUNT_ID_NAZARII`).
+Set in the environment: `UNIPILE_DSN`, `UNIPILE_API_KEY` (or `UNIPILE_TOKEN`), `UNIPILE_ACCOUNT_ID` (or `NAZARII_UNIPILE_LINKEDIN_ID`).
+The Claude cloud environment only allows outbound HTTPS on port 443, and Unipile DSNs use custom ports, so run the
+enrichment locally (or anywhere without that restriction) and commit `data/unipile_cache.json`.
 Same values as the `dealaris-outreach-helper` service on Railway (`zippy-nourishment`). Each company costs two
 calls (search + profile), 4–9 s apart; results are cached in `data/unipile_cache.json`, so a re-run only looks up
 new companies. `--max-lookups` caps a run (default 600).

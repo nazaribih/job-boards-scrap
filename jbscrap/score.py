@@ -132,6 +132,7 @@ def company_rollup(vacs):
     phone_heavy = sum(v["role_class"] in ("telesales_callcenter", "sdr_bdr_inside") for v in scored)
     leader_hire = any(v["role_class"] == "sales_leadership" for v in scored)
     # best role fit, then volume (hiring several reps = ramp pain), phone share, and a new sales leader (fresh buyer)
-    fit = best * 0.6 + min(n, 6) / 6 * 20 + (phone_heavy / n * 10 if n else 0) + (10 if leader_hire else 0)
+    # role fit dominates: one AE / SDR opening at a SaaS company is already a real prospect
+    fit = best * 0.75 + min(n, 6) / 6 * 15 + (phone_heavy / n * 5 if n else 0) + (5 if leader_hire else 0)
     return dict(fit_score=round(min(fit, 100), 1), sales_vacancies=n, role_classes="|".join(classes),
                 phone_roles=phone_heavy, hiring_sales_leader=leader_hire)

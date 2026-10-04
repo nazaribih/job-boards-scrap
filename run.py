@@ -11,23 +11,29 @@ from pathlib import Path
 
 from jbscrap import boards
 from jbscrap.score import STAFFING, company_key, company_rollup, fold, is_known_enterprise, score_vacancy
-from jbscrap.unipile import Unipile, enrich
+from jbscrap.unipile import CACHE, Unipile, enrich
 
 DATA = Path(__file__).resolve().parent / "data"
 
-PRACA_KEYWORDS = ["telesprzedaz", "telemarketing", "konsultant telefoniczny", "call center", "sprzedaz telefoniczna",
-                  "inside sales", "sdr", "bdr", "business development", "account executive", "sales development",
-                  "pozyskiwanie klientow", "doradca klienta", "specjalista ds sprzedazy", "kierownik sprzedazy",
-                  "sales manager", "doradca nieruchomosci", "fotowoltaika sprzedaz", "doradca kredytowy"]
+KEYWORDS = ["telesprzedaz", "telemarketing", "telemarketer", "konsultant telefoniczny", "call center", "contact center",
+            "sprzedaz telefoniczna", "specjalista ds sprzedazy telefonicznej", "infolinia", "inside sales", "sdr", "bdr",
+            "business development", "account executive", "sales development", "lead generation", "cold calling",
+            "appointment setter", "closer", "new business", "sales representative", "pozyskiwanie klientow",
+            "doradca klienta", "doradca handlowy", "specjalista ds sprzedazy", "sprzedaz b2b", "handlowiec",
+            "account manager", "key account manager", "customer success", "kierownik sprzedazy", "sales manager",
+            "team leader sprzedazy", "doradca nieruchomosci", "agent nieruchomosci", "fotowoltaika sprzedaz",
+            "pompy ciepla sprzedaz", "doradca kredytowy", "doradca finansowy", "doradca ubezpieczeniowy",
+            "doradca samochodowy", "sprzedaz zdalna", "praca zdalna sprzedaz", "sprzedaz kursow"]
 
 MIN_HEAD, MAX_HEAD = 10, 200
 
 
 def scrape():
     offers = []
-    for name, fn in [("rocketjobs", lambda: boards.rocketjobs(("sales",))),
+    for name, fn in [("rocketjobs", lambda: boards.rocketjobs(("sales", "support"))),
                      ("nofluffjobs", lambda: boards.nofluffjobs(("sales", "customerService"))),
-                     ("praca.pl", lambda: boards.praca_pl(PRACA_KEYWORDS))]:
+                     ("praca.pl", lambda: boards.praca_pl(KEYWORDS, max_pages=10)),
+                     ("aplikuj.pl", lambda: boards.aplikuj_pl(KEYWORDS, max_pages=10))]:
         try:
             got = fn()
         except Exception as e:  # one board failing shouldn't sink the run
@@ -35,6 +41,10 @@ def scrape():
             got = []
         print(f"[{name}] {len(got)} offers")
         offers += got
+    # full text + company size for rocketjobs offers that look like sales (skip retail / non-sales titles)
+    rj = [o for o in offers if o["source"] == "rocketjobs.pl" and score_vacancy(o)[1] > 0]
+    boards.rocketjobs_details(rj)
+    print(f"[rocketjobs] details for {len(rj)} offers, {sum(bool(o['company_size']) for o in rj)} with company size")
     return offers
 
 
@@ -72,11 +82,17 @@ def main():
         if roll["sales_vacancies"] == 0:
             continue
         status, reason = "qualified", ""
+        board_size = Counter(v.get("company_size", "") for v in vs if v.get("company_size")).most_common(1)
+        board_size = board_size[0][0] if board_size else ""
         if STAFFING.search(fold(name)):
             status, reason = "disqualified", "staffing agency / hidden client"
         elif is_known_enterprise(name):
             status, reason = "disqualified", "enterprise (known brand, pending LinkedIn check)"
+        elif board_size == "501+":
+            status, reason = "disqualified", "enterprise (501+ on rocketjobs profile)"
         companies.append(dict(company=name, company_key=key, **roll, status=status, disqualify_reason=reason,
+                              board_company_size=board_size,
+                              website=next((v["company_url"] for v in vs if v.get("company_url")), ""),
                               sources="|".join(sorted({v["source"] for v in vs})),
                               cities="|".join(sorted({v["city"].split(",")[0] for v in vs if v["city"]}))[:120],
                               top_vacancy=max(vs, key=lambda v: v["role_score"])["title"],
@@ -84,9 +100,9 @@ def main():
                               li_match="", li_name="", li_url="", li_headcount="", li_headcount_range="",
                               li_industry="", li_website=""))
 
-    if Unipile.available():
+    if Unipile.available() or CACHE.exists():
         todo = sorted([c for c in companies if c["status"] == "qualified"], key=lambda c: -c["fit_score"])
-        n = enrich(todo, max_lookups=args.max_lookups)
+        n = enrich(todo, max_lookups=args.max_lookups if Unipile.available() else 0)
         print(f"[unipile] {n} new lookups")
         for c in companies:
             hc = c["li_headcount"]
@@ -100,7 +116,7 @@ def main():
             elif size < MIN_HEAD:
                 c["status"], c["disqualify_reason"] = "disqualified", f"too small ({size} on LinkedIn)"
     else:
-        print("[unipile] UNIPILE_DSN / UNIPILE_API_KEY / UNIPILE_ACCOUNT_ID not set — headcount filter skipped")
+        print("[unipile] Unipile env not set — headcount filter uses cache / board data only")
 
     for c in companies:
         c["headcount_verified"] = c["li_headcount"] != "" or c["li_headcount_range"] != ""
@@ -117,7 +133,8 @@ def main():
     vac_cols = ["company", "company_status", "company_fit_score", "title", "role_class", "role_score", "signals", "city",
                 "workplace", "salary", "seniority", "source", "url", "published", "description"]
     co_cols = ["company", "tier", "status", "disqualify_reason", "fit_score", "sales_vacancies", "phone_roles", "hiring_sales_leader",
-               "role_classes", "top_vacancy", "top_vacancy_url", "cities", "sources", "headcount_verified", "li_headcount",
+               "role_classes", "top_vacancy", "top_vacancy_url", "cities", "sources", "website", "board_company_size",
+               "headcount_verified", "li_headcount",
                "li_headcount_range", "li_url", "li_industry", "li_website", "li_match"]
     for path, rows, cols in [(DATA / "vacancies.csv", [v for v in vacs if v["role_score"] > 0], vac_cols),
                              (DATA / "companies.csv", companies, co_cols)]:

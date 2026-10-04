@@ -1,7 +1,7 @@
 """LinkedIn company enrichment via Unipile (headcount, LinkedIn URL, industry).
 
-Env: UNIPILE_DSN (e.g. api8.unipile.com:13851), UNIPILE_API_KEY, UNIPILE_ACCOUNT_ID
-(falls back to UNIPILE_ACCOUNT_ID_NAZARII). Results are cached in data/unipile_cache.json so
+Env: UNIPILE_DSN (e.g. api8.unipile.com:13851), UNIPILE_API_KEY or UNIPILE_TOKEN, and
+UNIPILE_ACCOUNT_ID (falls back to UNIPILE_ACCOUNT_ID_NAZARII / NAZARII_UNIPILE_LINKEDIN_ID). Results are cached in data/unipile_cache.json so
 re-runs don't spend LinkedIn lookups again.
 """
 import json
@@ -17,18 +17,25 @@ from .score import company_key
 CACHE = Path(__file__).resolve().parent.parent / "data" / "unipile_cache.json"
 
 
+def _env(*names):
+    return next((os.environ[n] for n in names if os.environ.get(n)), "")
+
+
+KEY_VARS = ("UNIPILE_API_KEY", "UNIPILE_TOKEN")
+ACCOUNT_VARS = ("UNIPILE_ACCOUNT_ID", "UNIPILE_ACCOUNT_ID_NAZARII", "NAZARII_UNIPILE_LINKEDIN_ID")
+
+
 class Unipile:
     def __init__(self):
         dsn = os.environ["UNIPILE_DSN"].strip().rstrip("/")
         self.base = dsn if dsn.startswith("http") else f"https://{dsn}"
-        self.account = os.environ.get("UNIPILE_ACCOUNT_ID") or os.environ["UNIPILE_ACCOUNT_ID_NAZARII"]
+        self.account = _env(*ACCOUNT_VARS)
         self.s = requests.Session()
-        self.s.headers.update({"X-API-KEY": os.environ["UNIPILE_API_KEY"], "accept": "application/json"})
+        self.s.headers.update({"X-API-KEY": _env(*KEY_VARS), "accept": "application/json"})
 
     @staticmethod
     def available():
-        return bool(os.environ.get("UNIPILE_DSN") and os.environ.get("UNIPILE_API_KEY")
-                    and (os.environ.get("UNIPILE_ACCOUNT_ID") or os.environ.get("UNIPILE_ACCOUNT_ID_NAZARII")))
+        return bool(os.environ.get("UNIPILE_DSN") and _env(*KEY_VARS) and _env(*ACCOUNT_VARS))
 
     def _req(self, method, path, **kw):
         for attempt in range(4):
@@ -66,12 +73,12 @@ def _headcount(p):
 def enrich(companies, max_lookups=150, delay=(4, 9)):
     """companies: list of dicts with 'company' (display name) and 'company_key'. Mutates in place."""
     cache = json.loads(CACHE.read_text()) if CACHE.exists() else {}
-    api = Unipile()
+    api = Unipile() if Unipile.available() and max_lookups > 0 else None
     done = 0
     for c in companies:
         k = c["company_key"]
         if k not in cache:
-            if done >= max_lookups:
+            if api is None or done >= max_lookups:
                 continue
             try:
                 hit, match = _pick(c["company"], api.search_companies(c["company"]))

@@ -12,7 +12,8 @@ S.headers["User-Agent"] = UA
 
 def _offer(**kw):
     base = dict(source="", offer_id="", title="", company="", city="", workplace="",
-                category="", seniority="", salary="", description="", url="", published="")
+                category="", seniority="", salary="", description="", url="", published="",
+                company_size="", company_url="")
     base.update(kw)
     return base
 
@@ -52,6 +53,31 @@ def rocketjobs(categories=("sales",), page_size=100, max_items=5000):
             start += page_size
             time.sleep(0.3)
     return out
+
+
+def _rj_detail(o):
+    slug = o["url"].rsplit("/", 1)[-1]
+    for attempt in range(3):
+        try:
+            r = S.get(f"https://rocketjobs.pl/api/candidate-api/offers/{slug}", headers={"Version": "2"}, timeout=30)
+            if r.status_code == 200:
+                d = r.json()
+                body = html.unescape(re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", d.get("body") or ""))).strip()
+                o.update(description=f"{body} | skills: {o['description']}"[:4000],
+                         company_size=d.get("companySize") or "", company_url=d.get("companyUrl") or "")
+                return
+            if r.status_code == 404:
+                return
+        except requests.RequestException:
+            pass
+        time.sleep(2 * (attempt + 1))
+
+
+def rocketjobs_details(offers, workers=4):
+    """Full description + companySize/companyUrl for the given rocketjobs offers (mutates in place)."""
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(workers) as ex:
+        list(ex.map(_rj_detail, offers))
 
 
 def nofluffjobs(categories=("sales",), page_size=100, max_pages=20):
@@ -132,6 +158,47 @@ def praca_pl(keywords, max_pages=15):
                     url=_txt(r'class="listing-v2__title" href="([^"#]*)', body),
                     published=_txt(r'class="listing-v2__published">(.*?)</span>', body)))
             if new == 0 or len(items) < 30:
+                break
+            time.sleep(0.5)
+    return out
+
+
+def _ap_cards(page_html):
+    page_html = re.sub(r"<svg.*?</svg>|<template.*?</template>", "", page_html, flags=re.S)
+    # main result list only; promo sliders use "offer-card small"
+    for chunk in re.split(r'x-ref="offer-\d+"', page_html)[1:]:
+        yield chunk
+
+
+def aplikuj_pl(keywords, max_pages=10):
+    """aplikuj.pl keyword search, HTML listing (/praca/<kw>/strona-N)."""
+    out, seen = [], set()
+    for kw in keywords:
+        slug = kw.replace(" ", "-")
+        for page in range(1, max_pages + 1):
+            url = f"https://www.aplikuj.pl/praca/{slug}" + (f"/strona-{page}" if page > 1 else "")
+            r = S.get(url, timeout=30)
+            if r.status_code != 200:
+                break
+            cards = list(_ap_cards(r.text))
+            new = 0
+            for c in cards:
+                href = _txt(r'<a href="([^"]+)"\s+class="offer-title', c)
+                m = re.search(r"/oferta/(\d+)/", href)
+                if not m or m.group(1) in seen:
+                    continue
+                seen.add(m.group(1))
+                new += 1
+                out.append(_offer(
+                    source="aplikuj.pl", offer_id=m.group(1), title=_txt(r'class="offer-title"[^>]*>(.*?)</a>', c),
+                    company=_txt(r'href="https://www\.aplikuj\.pl/pracodawca/[^"]*"[^>]*>(.*?)</a>', c),
+                    city=_txt(r'offer-card-labels-list-item--workPlace">(.*?)</li>', c),
+                    salary=_txt(r'labels-list-item--salary">(.*?)</li>', c),
+                    workplace=", ".join(w for w, k in (("zdalna", "remoteWork"), ("hybrydowa", "hybridWork"), ("mobilna", "mobileWork"))
+                                        if f"--{k}" in c),
+                    seniority="bez doświadczenia" if "--inexperience" in c else "",
+                    category=f"kw:{kw}", url=href, published=_txt(r'class="offer-card-date[^"]*">(.*?)</time>', c)))
+            if new == 0 or len(cards) < 20:
                 break
             time.sleep(0.5)
     return out
