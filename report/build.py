@@ -33,6 +33,23 @@ rows = [dict(hc=x['li_headcount'] or x['li_headcount_range'], li=x['li_url'], n=
              c=x['cities'].split('|')[0] if x['cities'] else '', cls=[ROLE.get(k,k) for k in x['role_classes'].split('|') if k]) for x in q if x['tier'] in 'ABC']
 stats = dict(qualified=len(q), multi=sum(int(x['sales_vacancies'])>=3 for x in q), leader=sum(x['hiring_sales_leader']=='True' for x in q),
              phone=sum(int(x['phone_roles'])>0 for x in q))
+pr_cos = [x for x in c if x['sources'] == 'pracuj.pl']
+pracuj = [('Оголошень', src['pracuj.pl']), ('Компаній із sales-ролями', sum('pracuj.pl' in x['sources'] for x in c)),
+          ('Нових, яких немає на інших бордах', len(pr_cos)), ('З них кваліфіковано', sum(x['status'] == 'qualified' for x in pr_cos))]
+looked = [x for x in c if x['li_match']]
+li = [('Перевірено', len(looked)), ('Точний збіг назви', sum(x['li_match'] == 'exact' for x in looked)),
+      ('Fuzzy (усі слова + Польща)', sum(x['li_match'] in ('fuzzy', 'domain') for x in looked)),
+      ('Не знайдено на LinkedIn', sum(x['li_match'] not in ('exact', 'fuzzy', 'domain') for x in looked)),
+      ('Відсіяно: понад 200 працівників', disq['Понад 200 працівників (LinkedIn)']),
+      ('Відсіяно: менше 10 працівників', disq['Менше 10 працівників (LinkedIn)']),
+      ('Ще чекають перевірки', pending)]
+top = [x for x in q if x['tier'] == 'A' and x['headcount_verified'] == 'True'][:20]
+e = html.escape
+TOP = '\n'.join(f'<tr><td class="num">{i}</td><td class="co">{e(x["company"])}</td><td class="num">{float(x["fit_score"]):.1f}</td>'
+                f'<td class="num">{e(x["li_headcount"] or x["li_headcount_range"])}</td>'
+                f'<td><a href="{e(x["top_vacancy_url"])}" target="_blank" rel="noopener">{e(x["top_vacancy"])}</a></td>'
+                f'<td><a href="{e(x["li_url"])}" target="_blank" rel="noopener">{e(x["li_url"].rstrip("/").rsplit("/", 1)[-1])}</a></td></tr>'
+                for i, x in enumerate(top, 1))
 tpl = open(HERE / 'template.html').read()
 def bars(items, total=None, cls=''):
     m = max(n for _, n in items)
@@ -47,6 +64,7 @@ page = (tpl.replace('{{FUNNEL}}', bars(funnel, cls='funnel'))
         .replace('{{TIERS}}', bars([(f'Tier {t}', tiers[t]) for t in 'ABCD']))
         .replace('{{DISQ}}', bars(disq.most_common()))
         .replace('{{SRC}}', bars(src.most_common()))
+        .replace('{{PRACUJ}}', bars(pracuj)).replace('{{LINKEDIN}}', bars(li)).replace('{{TOP}}', TOP)
         .replace('{{ROWS}}', json.dumps(rows, ensure_ascii=False))
         .replace('{{NOTE}}', NOTE)
         .replace('{{SOURCES_LINE}}', ', '.join(k for k, _ in src.most_common()))

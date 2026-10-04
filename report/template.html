@@ -98,6 +98,30 @@ a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset:
 
   <div class="grid2">
     <section>
+      <h2>pracuj.pl</h2>
+      <p class="sub">Найбільший польський борд, доданий цим прогоном</p>
+      <div class="bars">{{PRACUJ}}</div>
+    </section>
+    <section>
+      <h2>Перевірка штату на LinkedIn</h2>
+      <p class="sub">Компанії, які шукали на LinkedIn, за результатом пошуку. Fuzzy зараховано, лише коли збігаються всі слова назви і компанія має офіс у Польщі</p>
+      <div class="bars">{{LINKEDIN}}</div>
+    </section>
+  </div>
+
+  <section>
+    <h2>Топ-20 tier A з підтвердженим штатом</h2>
+    <p class="sub">10–200 працівників за LinkedIn, відсортовано за fit</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th class="num">#</th><th>Компанія</th><th class="num">Fit</th><th class="num">Штат</th><th>Найсильніша вакансія</th><th>LinkedIn</th></tr></thead>
+        <tbody>{{TOP}}</tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="grid2">
+    <section>
       <h2>Вакансії за типом ролі</h2>
       <p class="sub">Тільки кваліфіковані компанії, кількість вакансій</p>
       <div class="bars">{{ROLES}}</div>
