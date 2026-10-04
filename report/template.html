@@ -77,7 +77,7 @@ a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset:
 
 <div class="wrap">
   <header>
-    <div class="eyebrow">Польща · rocketjobs.pl, praca.pl, aplikuj.pl, nofluffjobs.com · 4 жовтня 2026</div>
+    <div class="eyebrow">Польща · {{SOURCES_LINE}} · {{DATE}}</div>
     <h1>Хто зараз наймає людей на дзвінки</h1>
     <p class="lede">Компанії з відкритими вакансіями в телефонних продажах, SDR/BDR, AE та high-ticket B2C. Скоринг показує, наскільки компанія схожа на покупця Dealaris: копайлот для живих дзвінків для команд малого й середнього бізнесу.</p>
     <div class="note">{{NOTE}}</div>
@@ -136,7 +136,7 @@ a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset:
     <h2>Як рахується fit</h2>
     <p>Кожна вакансія отримує базовий бал за роллю з назви: telesales і call center 95, SDR/BDR 90, AE/B2B SaaS 80, high-ticket B2C 80, керівник продажів 70, specjalista ds. sprzedaży 60, account management 55. Роздріб і польові продажі дають 0. До бази додаються сигнали з опису: телефон, онлайн-зустрічі, віддалена робота, juniorи та онбординг, скрипти й CRM, комісія.</p>
     <p>Fit компанії = найкраща вакансія × 0,75 + обсяг найму (до 15 балів, максимум на 6 вакансіях) + частка телефонних ролей (до 5) + 5, якщо компанія шукає керівника продажів, тобто нового покупця.</p>
-    <p>Обмеження: pracuj.pl, OLX, Indeed, gowork і careerjet закриті Cloudflare-челенджем і не зібрані. Для rocketjobs.pl підтягнуто повні описи й розмір компанії з профілю роботодавця; для praca.pl і aplikuj.pl є лише назва й короткий тизер, тож сигнали там слабші. Повні дані лежать у <code>data/companies.csv</code> і <code>data/vacancies.csv</code>.</p>
+    <p>Обмеження: {{BLOCKED}} Для rocketjobs.pl підтягнуто повні описи й розмір компанії з профілю роботодавця; для praca.pl і aplikuj.pl є лише назва й короткий тизер, тож сигнали там слабші. Повні дані лежать у <code>data/companies.csv</code> і <code>data/vacancies.csv</code>.</p>
   </section>
 </div>
 

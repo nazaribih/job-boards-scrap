@@ -2,6 +2,7 @@
 
   python run.py                 # scrape + score, enrich with Unipile if env is set
   python run.py --no-scrape     # re-score / re-enrich from data/raw_offers.json
+  python run.py --sources pracuj --merge   # add pracuj.pl (local Chrome) to the existing offers
 """
 import argparse
 import csv
@@ -28,14 +29,22 @@ KEYWORDS = ["telesprzedaz", "telemarketing", "telemarketer", "konsultant telefon
 MIN_HEAD, MAX_HEAD = 10, 200
 
 
-def scrape():
+SOURCES = {
+    "rocketjobs": lambda: boards.rocketjobs(("sales", "support")),
+    "nofluffjobs": lambda: boards.nofluffjobs(("sales", "customerService")),
+    "praca": lambda: boards.praca_pl(KEYWORDS, max_pages=10),
+    "aplikuj": lambda: boards.aplikuj_pl(KEYWORDS, max_pages=10),
+    # needs a local machine with Google Chrome (Cloudflare blocks datacenter IPs)
+    "pracuj": lambda: __import__("jbscrap.pracuj", fromlist=["pracuj_pl"]).pracuj_pl(KEYWORDS, max_pages=10),
+}
+DEFAULT_SOURCES = ["rocketjobs", "nofluffjobs", "praca", "aplikuj"]
+
+
+def scrape(names):
     offers = []
-    for name, fn in [("rocketjobs", lambda: boards.rocketjobs(("sales", "support"))),
-                     ("nofluffjobs", lambda: boards.nofluffjobs(("sales", "customerService"))),
-                     ("praca.pl", lambda: boards.praca_pl(KEYWORDS, max_pages=10)),
-                     ("aplikuj.pl", lambda: boards.aplikuj_pl(KEYWORDS, max_pages=10))]:
+    for name in names:
         try:
-            got = fn()
+            got = SOURCES[name]()
         except Exception as e:  # one board failing shouldn't sink the run
             print(f"[{name}] failed: {e}")
             got = []
@@ -43,14 +52,19 @@ def scrape():
         offers += got
     # full text + company size for rocketjobs offers that look like sales (skip retail / non-sales titles)
     rj = [o for o in offers if o["source"] == "rocketjobs.pl" and score_vacancy(o)[1] > 0]
-    boards.rocketjobs_details(rj)
-    print(f"[rocketjobs] details for {len(rj)} offers, {sum(bool(o['company_size']) for o in rj)} with company size")
+    if rj:
+        boards.rocketjobs_details(rj)
+        print(f"[rocketjobs] details for {len(rj)} offers, {sum(bool(o['company_size']) for o in rj)} with company size")
     return offers
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--no-scrape", action="store_true")
+    ap.add_argument("--sources", default=",".join(DEFAULT_SOURCES),
+                    help=f"comma list or 'all' ({', '.join(SOURCES)}); default skips pracuj")
+    ap.add_argument("--merge", action="store_true",
+                    help="keep offers from data/raw_offers.json for boards not scraped in this run")
     ap.add_argument("--max-lookups", type=int, default=600, help="Unipile company lookups per run")
     args = ap.parse_args()
     DATA.mkdir(exist_ok=True)
@@ -58,7 +72,11 @@ def main():
     if args.no_scrape:
         offers = json.loads(raw.read_text())
     else:
-        offers = scrape()
+        names = list(SOURCES) if args.sources == "all" else [n.strip() for n in args.sources.split(",") if n.strip()]
+        offers = scrape(names)
+        if args.merge and raw.exists():
+            fresh = {o["source"] for o in offers}
+            offers += [o for o in json.loads(raw.read_text()) if o["source"] not in fresh]
         raw.write_text(json.dumps(offers, ensure_ascii=False))
 
     # dedupe vacancies (same company + title + city across boards / keyword queries)
