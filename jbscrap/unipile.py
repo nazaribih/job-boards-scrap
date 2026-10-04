@@ -86,6 +86,11 @@ def enrich(companies, max_lookups=150, delay=(4, 9)):
                 cache[k] = {"match": match, "search_hit": hit, "profile": prof}
             except requests.HTTPError as e:
                 cache[k] = {"match": "error", "error": str(e)[:200]}
+            except requests.ConnectionError as e:
+                # unreachable (e.g. a sandbox that only allows port 443): stop looking up, keep what's cached
+                print(f"[unipile] unreachable, skipping remaining lookups: {str(e)[:120]}")
+                api = None
+                continue
             done += 1
             CACHE.write_text(json.dumps(cache, ensure_ascii=False, indent=1))
             time.sleep(random.uniform(*delay))

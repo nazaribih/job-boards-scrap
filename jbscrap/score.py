@@ -100,6 +100,9 @@ def is_known_enterprise(name):
     return bool(KNOWN_ENTERPRISE.search(n)) and not re.search(r"partner|autoryzowan|dealer|salon", n)
 
 
+SALES_CUE = _rx(r"doradc", r"agent", r"sprzeda", r"handlow", r"sales", r"konsultant", r"opiekun", r"posrednik",
+                r"klient", r"pozyskiw", r"menedzer", r"manager")
+
 HIGH_TICKET_GOODS = _rx(r"samochod", r"nieruchomo", r"fotowolta", r"pomp\w* ciepla", r"\boze\b", r"jacht", r"maszyn")
 
 
@@ -107,6 +110,9 @@ def classify(title):
     t = fold(title)
     for cls, rx, base in ROLE_RULES:
         if rx.search(t):
+            # industry words alone ("Serwis OZE", "adaptacji inwestycji") aren't a selling role
+            if cls == "high_ticket_b2c" and not SALES_CUE.search(t):
+                continue
             # showroom sellers of cars / real estate / PV still run long phone + meeting cycles
             if cls == "retail_or_field" and HIGH_TICKET_GOODS.search(t):
                 return "high_ticket_b2c", 70
