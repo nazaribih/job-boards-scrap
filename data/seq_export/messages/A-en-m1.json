@@ -1,0 +1,6 @@
+{
+  "lang": "en",
+  "stage": "message_1",
+  "text": "Hi {first_name}, thanks for connecting. {personal_line}\n\nWe built a tool that shows the rep what to say while the client is still talking. Worth a 10-min look?",
+  "track": "A"
+}

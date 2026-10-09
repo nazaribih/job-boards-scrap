@@ -1,0 +1,6 @@
+{
+  "lang": "en",
+  "stage": "message_1",
+  "text": "Hi {first_name}, thanks for connecting. {personal_line}\n\nOur tool listens to the call and gives the agent an answer to the objection while it's happening. It fills in the CRM afterwards. Can I show you in 10 minutes?",
+  "track": "B"
+}

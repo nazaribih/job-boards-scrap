@@ -1,0 +1,153 @@
+<title>Dealaris DM Niches</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@500;700&family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one report column. Headline tiles, niche breakdown (bars + table), what these companies hire, then the full decision-maker list with niche filter and search */
+:root {
+  --bg: #f7f8fa; --surface: #ffffff; --line: #dfe3ea; --ink: #10151f; --ink-2: #4a5263; --ink-3: #737b8c;
+  --accent: #2a78d6; --accent-soft: #e4eefb; --tier-a: #b45f00; --tier-a-bg: #fff1dc; --tier-b: #1d6fb8; --tier-b-bg: #e3effb;
+  --f-display: "Onest", "Golos Text", system-ui, sans-serif; --f-body: "Golos Text", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f1218; --surface: #171b23; --line: #2a303c; --ink: #f2f4f8; --ink-2: #b9c0cd; --ink-3: #8a92a2;
+  --accent: #3987e5; --accent-soft: #1c2a3f; --tier-a: #f2a54a; --tier-a-bg: #3a2a14; --tier-b: #7cb6f2; --tier-b-bg: #18283c; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0f1218; --surface: #171b23; --line: #2a303c; --ink: #f2f4f8; --ink-2: #b9c0cd; --ink-3: #8a92a2;
+  --accent: #3987e5; --accent-soft: #1c2a3f; --tier-a: #f2a54a; --tier-a-bg: #3a2a14; --tier-b: #7cb6f2; --tier-b-bg: #18283c; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 36px 64px; display: grid; gap: 40px; }
+header { display: grid; gap: 10px; }
+.eyebrow { font-family: var(--f-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+h1 { font-family: var(--f-display); font-weight: 700; font-size: clamp(28px, 4.4vw, 40px); line-height: 1.1; margin: 0; text-wrap: balance; }
+h2 { font-family: var(--f-display); font-weight: 700; font-size: 20px; margin: 0; text-wrap: balance; }
+.lede { color: var(--ink-2); max-width: 70ch; margin: 0; }
+.sub { color: var(--ink-3); font-size: 13px; margin: -6px 0 0; max-width: 80ch; }
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 4px; align-content: start; }
+.tile b { font-family: var(--f-display); font-size: 32px; line-height: 1; font-variant-numeric: tabular-nums; }
+.tile span { color: var(--ink-2); font-size: 13px; }
+section { display: grid; gap: 14px; min-width: 0; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 36px 40px; }
+.bars { display: grid; gap: 8px; }
+.bar-row { display: grid; grid-template-columns: minmax(0, 16em) minmax(0, 1fr) 3.5em; gap: 12px; align-items: center; }
+.bar-label { font-size: 13.5px; color: var(--ink-2); overflow-wrap: anywhere; }
+.bar-track { height: 14px; display: block; }
+.bar-fill { display: block; height: 100%; background: var(--accent); border-radius: 0 4px 4px 0; min-width: 2px; }
+.bar-val { font-family: var(--f-mono); font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; }
+.table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.dm-wrap { max-height: 760px; overflow-y: auto; }
+.dm-wrap thead th { position: sticky; top: 0; background: var(--surface); z-index: 1; }
+table { border-collapse: collapse; width: 100%; min-width: 820px; font-size: 14px; }
+th { text-align: left; font-weight: 600; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-3); padding: 10px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+td.num, th.num { text-align: right; font-family: var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.co { font-weight: 600; }
+.cls { color: var(--ink-3); font-size: 12.5px; margin-top: 2px; }
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+.tier { display: inline-block; font: 600 12px var(--f-mono); padding: 2px 8px; border-radius: 999px; }
+.tier-A { color: var(--tier-a); background: var(--tier-a-bg); }
+.tier-B { color: var(--tier-b); background: var(--tier-b-bg); }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+select, input[type="search"] { font: 14px var(--f-body); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; min-width: 0; }
+input[type="search"] { flex: 1 1 220px; max-width: 340px; }
+select:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.count { color: var(--ink-3); font-size: 13px; margin-left: auto; }
+.tag { display: inline-block; font-size: 12px; color: var(--ink-2); border: 1px solid var(--line); border-radius: 4px; padding: 0 6px; }
+@media (max-width: 760px) {
+  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid2 { grid-template-columns: minmax(0, 1fr); }
+  .bar-row { grid-template-columns: minmax(0, 10em) minmax(0, 1fr) 3em; gap: 8px; }
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Dealaris · ЛПРи tier A + B · {{DATE}}</div>
+    <h1>Ніші та ЛПРи</h1>
+    <p class="lede">У яких нішах працюють компанії, де ми вже знайшли людей, що приймають рішення, кого саме ці компанії зараз наймають у продажі, і повний список ЛПРів, відсортований за оцінкою ліда.</p>
+  </header>
+
+  <div class="tiles">
+    <div class="tile"><b>{{PEOPLE}}</b><span>ЛПРів у {{COMPANIES}} компаніях</span></div>
+    <div class="tile"><b>{{NICHES}}</b><span>ніш</span></div>
+    <div class="tile"><b>{{VAC}}</b><span>відкритих sales-вакансій у цих компаніях</span></div>
+    <div class="tile"><b>{{LI}}</b><span>з профілем LinkedIn · {{CONTACT}} з імейлом або телефоном</span></div>
+  </div>
+
+  <section>
+    <h2>Ніші</h2>
+    <p class="sub">Одна ніша на компанію: LLM читає опис на LinkedIn, вердикт судді й вакансії. «Remote/hybrid» — частка вакансій ніші, де продають не з офісу.</p>
+    <div class="grid2">
+      <div class="bars">{{NICHE_BARS}}</div>
+      <div class="table-wrap">
+        <table style="min-width:560px">
+          <thead><tr><th>Ніша</th><th class="num">Компаній</th><th class="num">ЛПРів</th><th class="num">Оцінка</th><th class="num">Вакансій</th><th>Кого найбільше шукають</th><th class="num">Remote/hybrid</th></tr></thead>
+          <tbody>{{NICHE_TABLE}}</tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <div class="grid2">
+    <section>
+      <h2>Кого вони наймають</h2>
+      <p class="sub">Тип ролі за назвою вакансії, усі відкриті sales-вакансії цих компаній</p>
+      <div class="bars">{{ROLE_BARS}}</div>
+      <h2 style="margin-top:12px">Формат роботи</h2>
+      <div class="bars">{{MODE_BARS}}</div>
+    </section>
+    <section>
+      <h2>Найчастіші посади</h2>
+      <p class="sub">Назви вакансій без «(k/m)» та уточнень</p>
+      <div class="bars">{{TITLE_BARS}}</div>
+      <h2 style="margin-top:12px">Ролі ЛПРів</h2>
+      <div class="bars">{{DM_ROLE_BARS}}</div>
+    </section>
+  </div>
+
+  <section>
+    <h2>Усі ЛПРи</h2>
+    <p class="sub">Оцінка ліда = оцінка компанії (до 70) + роль (до 20) + підтвердження, що людина там працює (5) + близькість у мережі (5). Посада й «що продає» — для персоналізації першого повідомлення.</p>
+    <div class="controls">
+      <select id="niche" aria-label="Ніша"><option value="">Усі ніші</option>{{NICHE_OPTIONS}}</select>
+      <select id="tier" aria-label="Tier"><option value="">Tier A + B</option><option value="A">Лише A</option><option value="B">Лише B</option></select>
+      <input type="search" id="q" placeholder="Компанія, людина, посада" aria-label="Пошук">
+      <span class="count" id="count"></span>
+    </div>
+    <div class="table-wrap dm-wrap">
+      <table>
+        <thead><tr><th class="num">Оцінка</th><th>Людина</th><th>Компанія · ніша</th><th>Кого наймають</th><th>Контакт</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<script>
+const ROWS = {{ROWS}};
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const safe = u => /^https?:\/\//.test(u || "") ? esc(u) : "";
+function render() {
+  const n = $("niche").value, t = $("tier").value, q = $("q").value.trim().toLowerCase();
+  const list = ROWS.filter(r => (!n || r.n === n) && (!t || r.t === t) &&
+    (!q || (r.c + " " + r.p + " " + r.r + " " + r.h + " " + r.vt).toLowerCase().includes(q)));
+  $("count").textContent = `${list.length} з ${ROWS.length}`;
+  $("rows").innerHTML = list.map(r => `<tr>
+    <td class="num">${r.s.toFixed(1)}</td>
+    <td>${safe(r.u) ? `<a href="${safe(r.u)}" target="_blank" rel="noopener">${esc(r.p)}</a>` : `<span class="co">${esc(r.p)}</span>`}
+      <div>${esc(r.r)}</div><div class="cls">${esc(r.h)}</div></td>
+    <td><span class="tier tier-${esc(r.t)}">${esc(r.t)}</span> <span class="co">${esc(r.c)}</span>${r.hc ? ` <span class="cls">· ${esc(r.hc)} осіб</span>` : ""}
+      <div><span class="tag">${esc(r.n)}</span></div><div class="cls">${esc(r.sells)}</div></td>
+    <td>${safe(r.vu) ? `<a href="${safe(r.vu)}" target="_blank" rel="noopener">${esc(r.vt)}</a>` : esc(r.vt)}
+      <div class="cls">${r.vn} sales-вакансій</div></td>
+    <td class="cls">${[r.e, r.ph].filter(Boolean).map(esc).join("<br>")}${r.src === "Сайт" && safe(r.su) ? `<div><a href="${safe(r.su)}" target="_blank" rel="noopener">з сайту</a></div>` : `<div>${esc(r.src)}</div>`}</td>
+  </tr>`).join("");
+}
+["niche", "tier"].forEach(id => $(id).addEventListener("change", render));
+$("q").addEventListener("input", render);
+render();
+</script>

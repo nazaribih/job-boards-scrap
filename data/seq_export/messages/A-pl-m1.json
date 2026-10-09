@@ -1,0 +1,6 @@
+{
+  "lang": "pl",
+  "stage": "message_1",
+  "text": "Cześć {first_name}, dzięki za przyjęcie zaproszenia. {personal_line}\n\nZrobiliśmy narzędzie, które w trakcie rozmowy podpowiada handlowcowi na ekranie, co odpowiedzieć klientowi. Mogę pokazać w 10 minut?",
+  "track": "A"
+}

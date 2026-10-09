@@ -63,6 +63,8 @@ a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset:
 .tier-A { color: var(--tier-a); background: var(--tier-a-bg); }
 .tier-B { color: var(--tier-b); background: var(--tier-b-bg); }
 .tier-C { color: var(--tier-c); background: var(--tier-c-bg); }
+.dm-wrap { max-height: 640px; overflow-y: auto; }
+.dm-wrap thead th { position: sticky; top: 0; background: var(--surface); }
 .flag { display: inline-block; font-size: 12px; color: var(--ink-2); border: 1px solid var(--line); border-radius: 4px; padding: 0 6px; margin-top: 4px; }
 .method { display: grid; gap: 8px; color: var(--ink-2); max-width: 80ch; font-size: 14px; }
 .method p { margin: 0; }
@@ -85,7 +87,7 @@ a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset:
 
   <div class="tiles">
     <div class="tile"><b>{{Q}}</b><span>компаній пройшли фільтри</span></div>
-    <div class="tile"><b>{{A}} + {{B}}</b><span>у tier A і B (fit ≥ 70)</span></div>
+    <div class="tile"><b>{{A}} + {{B}}</b><span>у tier A і B (оцінка компанії ≥ 65)</span></div>
     <div class="tile"><b>{{MULTI}}</b><span>наймають 3+ продажників одночасно</span></div>
     <div class="tile"><b>{{LEADER}}</b><span>шукають керівника продажів</span></div>
   </div>
@@ -114,7 +116,7 @@ a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset:
     <p class="sub">10–200 працівників за LinkedIn, відсортовано за fit</p>
     <div class="table-wrap">
       <table>
-        <thead><tr><th class="num">#</th><th>Компанія</th><th class="num">Fit</th><th class="num">Штат</th><th>Найсильніша вакансія</th><th>LinkedIn</th></tr></thead>
+        <thead><tr><th class="num">#</th><th>Компанія</th><th class="num">Оцінка</th><th class="num">Штат</th><th>Найсильніша вакансія</th><th>LinkedIn</th></tr></thead>
         <tbody>{{TOP}}</tbody>
       </table>
     </div>
@@ -128,7 +130,7 @@ a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset:
     </section>
     <section>
       <h2>Компанії за tier</h2>
-      <p class="sub">A ≥ 80 · B ≥ 70 · C ≥ 60 · D &lt; 60 балів fit</p>
+      <p class="sub">A ≥ 80 · B ≥ 65 · C ≥ 50 · D &lt; 50 балів оцінки компанії</p>
       <div class="bars">{{TIERS}}</div>
       <h2 style="margin-top:18px">Відсіяно</h2>
       <div class="bars">{{DISQ}}</div>
@@ -137,6 +139,25 @@ a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset:
       <div class="bars">{{SRC}}</div>
     </section>
   </div>
+
+  <section id="dm">
+    <h2>Decision makers у tier A + B</h2>
+    <p class="sub">CEO, власники, члени правління й керівники продажів, до 3 на компанію: з пошуку LinkedIn за компанією та зі сторінок «O nas / Zespół / Kontakt» на сайтах компаній. Оцінка ліда = оцінка компанії (до 70) + роль (до 20) + підтвердження, що людина там працює (5) + близькість у мережі (5). Повний список: <code>data/decision_makers.csv</code></p>
+    <div class="grid2">
+      <div class="bars">{{DM_STATS}}</div>
+      <div class="bars">{{DM_ROLES}}</div>
+    </div>
+    <div class="controls">
+      <input type="search" id="dmq" placeholder="Компанія, людина або роль" aria-label="Пошук ЛПРів">
+      <span class="count" id="dmcount"></span>
+    </div>
+    <div class="table-wrap dm-wrap">
+      <table>
+        <thead><tr><th class="num">Оцінка</th><th>Tier</th><th>Компанія</th><th>Людина</th><th>Роль</th><th>Джерело</th><th>Контакт</th></tr></thead>
+        <tbody id="dmrows">{{DM_ROWS}}</tbody>
+      </table>
+    </div>
+  </section>
 
   <section>
     <h2>Проспекти tier A–C</h2>
@@ -150,21 +171,34 @@ a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset:
     </div>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Tier</th><th>Компанія</th><th class="num">Fit</th><th class="num">Sales-вакансій</th><th class="num">Телефонних</th><th>Найсильніша вакансія</th><th>Місто</th><th class="num">Штат</th></tr></thead>
+        <thead><tr><th>Tier</th><th>Компанія</th><th class="num">Оцінка</th><th class="num">Sales-вакансій</th><th class="num">Телефонних</th><th>Найсильніша вакансія</th><th>Місто</th><th class="num">Штат</th></tr></thead>
         <tbody id="rows"></tbody>
       </table>
     </div>
   </section>
 
   <section class="method">
-    <h2>Як рахується fit</h2>
-    <p>Кожна вакансія отримує базовий бал за роллю з назви: telesales і call center 95, SDR/BDR 90, AE/B2B SaaS 80, high-ticket B2C 80, керівник продажів 70, specjalista ds. sprzedaży 60, account management 55. Роздріб і польові продажі дають 0. До бази додаються сигнали з опису: телефон, онлайн-зустрічі, віддалена робота, juniorи та онбординг, скрипти й CRM, комісія.</p>
-    <p>Fit компанії = найкраща вакансія × 0,75 + обсяг найму (до 15 балів, максимум на 6 вакансіях) + частка телефонних ролей (до 5) + 5, якщо компанія шукає керівника продажів, тобто нового покупця.</p>
+    <h2>Як оцінюється компанія</h2>
+    <p>Скоримо компанію, а не окремі вакансії. Оцінка компанії (0–100) = відповідність пітч-деку Dealaris за LLM-суддею (до 60 балів) + частка продажів телефоном чи онлайн (до 20) + штат у межах 10–200 за LinkedIn (10, якщо підтверджено, інакше 5) + сигнал найму з вакансій (до 10). Tier: A від 80, B від 65, C від 50. Компанії, де суддя бачить продажі переважно наживо або поза ICP, відсіяні.</p>
+    <p>LLM-суддя (gpt-5-mini) читає вакансії та профіль компанії на LinkedIn і повертає канал продажів, частку дзвінків і відеозустрічей, сегмент, оцінку 0–10 і пояснення.</p>
+    <p>Сигнал найму рахується з вакансій: кожна отримує базовий бал за роллю з назви: telesales і call center 95, SDR/BDR 90, AE/B2B SaaS 80, high-ticket B2C 80, керівник продажів 70, specjalista ds. sprzedaży 60, account management 55. Роздріб і польові продажі дають 0. До бази додаються сигнали з опису: телефон, онлайн-зустрічі, віддалена робота, juniorи та онбординг, скрипти й CRM, комісія.</p>
+    <p>Сигнал найму = найкраща вакансія × 0,75 + обсяг найму (до 15 балів, максимум на 6 вакансіях) + частка телефонних ролей (до 5) + 5, якщо компанія шукає керівника продажів, тобто нового покупця.</p>
     <p>Обмеження: {{BLOCKED}} Для rocketjobs.pl підтягнуто повні описи й розмір компанії з профілю роботодавця; для praca.pl і aplikuj.pl є лише назва й короткий тизер, тож сигнали там слабші. Повні дані лежать у <code>data/companies.csv</code> і <code>data/vacancies.csv</code>.</p>
   </section>
 </div>
 
 <script>
+(() => {
+  const input = document.getElementById('dmq'), rows = [...document.querySelectorAll('#dmrows tr')], count = document.getElementById('dmcount');
+  const apply = () => {
+    const v = input.value.trim().toLowerCase();
+    let n = 0;
+    for (const r of rows) { const show = !v || r.dataset.q.includes(v); r.hidden = !show; n += show; }
+    count.textContent = `${n} з ${rows.length}`;
+  };
+  input.addEventListener('input', apply);
+  apply();
+})();
 const ROWS = {{ROWS}};
 const tbody = document.getElementById('rows'), countEl = document.getElementById('count'), q = document.getElementById('q');
 let mode = 'AB';

@@ -15,6 +15,7 @@ from jbscrap.score import STAFFING, company_key, company_rollup, fold, is_known_
 from jbscrap.unipile import CACHE, Unipile, enrich
 
 DATA = Path(__file__).resolve().parent / "data"
+JUDGE = DATA / "judge_cache.json"
 
 KEYWORDS = ["telesprzedaz", "telemarketing", "telemarketer", "konsultant telefoniczny", "call center", "contact center",
             "sprzedaz telefoniczna", "specjalista ds sprzedazy telefonicznej", "infolinia", "inside sales", "sdr", "bdr",
@@ -38,6 +39,18 @@ SOURCES = {
     "pracuj": lambda: __import__("jbscrap.pracuj", fromlist=["pracuj_pl"]).pracuj_pl(KEYWORDS, max_pages=10),
 }
 DEFAULT_SOURCES = ["rocketjobs", "nofluffjobs", "praca", "aplikuj"]
+
+
+def company_score(c):
+    """0-100 score of the COMPANY as a Dealaris customer: pitch-deck fit and remote selling from the LLM judge
+    (80 points), headcount inside the ICP (10) and hiring for sales right now (10, from the vacancy-based fit_score).
+    Companies the judge hasn't seen get half the judge points, so they sink below judged fits."""
+    if c["llm_fit"] != "":
+        judge = int(c["llm_fit"]) * 6 + int(c["llm_remote_share"]) * 0.2
+    else:
+        judge = 40
+    size = 10 if c["headcount_verified"] else 7 if c.get("llm_size") in ("10-50", "51-200") else 5
+    return round(judge + size + c["fit_score"] / 10, 1)
 
 
 def scrape(names):
@@ -136,24 +149,40 @@ def main():
     else:
         print("[unipile] Unipile env not set — headcount filter uses cache / board data only")
 
+    # LLM-as-a-judge verdicts from judge.py (pitch-deck fit, sells by phone / online)
+    judged = json.loads(JUDGE.read_text()) if JUDGE.exists() else {}
+    for c in companies:
+        j = judged.get(c["company_key"]) or {}
+        c.update(llm_verdict=j.get("verdict", ""), llm_fit=j.get("fit", ""), llm_channel=j.get("sales_channel", ""),
+                 llm_remote_share=j.get("remote_share", ""), llm_segment=j.get("segment", ""), llm_reason=j.get("reason", ""))
+        if j.get("verdict") == "no" and c["status"] == "qualified":
+            c["status"], c["disqualify_reason"] = "disqualified", "LLM judge: sales not remote / outside ICP"
+        # headcount LinkedIn couldn't verify, estimated by the judge from the website and the ads
+        sz = j.get("size") or {}
+        c["llm_size"] = sz.get("headcount_band", "") if not (c["li_headcount"] or c["li_headcount_range"]) else ""
+        if c["llm_size"] in ("1-9", "201-500", "500+") and sz.get("confidence") != "low" and c["status"] == "qualified":
+            c["status"], c["disqualify_reason"] = "disqualified", f"LLM size estimate: {c['llm_size']} employees"
+
     for c in companies:
         c["headcount_verified"] = c["li_headcount"] != "" or c["li_headcount_range"] != ""
-        f = c["fit_score"]
-        c["tier"] = "A" if f >= 80 else "B" if f >= 70 else "C" if f >= 60 else "D"
-    companies.sort(key=lambda c: (c["status"] != "qualified", -c["fit_score"], -c["sales_vacancies"]))
+        c["company_score"] = company_score(c)
+        f = c["company_score"]
+        c["tier"] = "A" if f >= 80 else "B" if f >= 65 else "C" if f >= 50 else "D"
+    companies.sort(key=lambda c: (c["status"] != "qualified", -c["company_score"], -c["fit_score"]))
     status_of = {c["company_key"]: c for c in companies}
-    vacs.sort(key=lambda v: (-status_of.get(v["company_key"], {}).get("fit_score", 0), v["company_key"], -v["role_score"]))
+    vacs.sort(key=lambda v: (-status_of.get(v["company_key"], {}).get("company_score", 0), v["company_key"], -v["role_score"]))
     for v in vacs:
         c = status_of.get(v["company_key"])
         v["company_status"] = c["status"] if c else "no_sales_roles"
-        v["company_fit_score"] = c["fit_score"] if c else 0
+        v["company_fit_score"] = c["company_score"] if c else 0
 
     vac_cols = ["company", "company_status", "company_fit_score", "title", "role_class", "role_score", "signals", "city",
                 "workplace", "salary", "seniority", "source", "url", "published", "description"]
-    co_cols = ["company", "tier", "status", "disqualify_reason", "fit_score", "sales_vacancies", "phone_roles", "hiring_sales_leader",
+    co_cols = ["company", "tier", "company_score", "status", "disqualify_reason", "fit_score", "sales_vacancies", "phone_roles", "hiring_sales_leader",
                "role_classes", "top_vacancy", "top_vacancy_url", "cities", "sources", "website", "board_company_size",
                "headcount_verified", "li_headcount",
-               "li_headcount_range", "li_url", "li_industry", "li_website", "li_match"]
+               "li_headcount_range", "li_url", "li_industry", "li_website", "li_match",
+               "llm_verdict", "llm_fit", "llm_channel", "llm_remote_share", "llm_segment", "llm_reason", "llm_size"]
     for path, rows, cols in [(DATA / "vacancies.csv", [v for v in vacs if v["role_score"] > 0], vac_cols),
                              (DATA / "companies.csv", companies, co_cols)]:
         with open(path, "w", newline="", encoding="utf-8") as f:
