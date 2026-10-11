@@ -32,14 +32,12 @@ import requests
 
 import campaigns
 import guard
+import store
 
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
-LEADS = DATA / "campaign_leads.json"
 SEQ = DATA / "sequences.json"
-VOC = DATA / "voc_cache.json"  # Ukrainian leads: first name in Cyrillic, vocative case
-STATE = DATA / "campaign_state.json"
-LOG = DATA / "campaign.log"
+VOC = store.path("voc_cache.json")  # Ukrainian leads: first name in Cyrillic, vocative case
 TZ = ZoneInfo("Europe/Warsaw")
 ACCOUNTS = {"nazarii": "UNIPILE_ACCOUNT_ID_NAZARII", "hleb": "UNIPILE_ACCOUNT_ID_HLEB"}
 STAGES = ["m1", "f1", "f2", "f3"]
@@ -90,18 +88,15 @@ def now():
 def log(msg):
     line = f"[{now():%m-%d %H:%M}] {msg}"
     print(line, flush=True)
-    with open(LOG, "a") as f:
-        f.write(line + "\n")
+    store.log_line("campaign", line)
 
 
 def load(path, default):
-    return json.loads(path.read_text()) if path.exists() else default
+    return store.read_json(path, default)
 
 
 def save(path, obj):
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(obj, ensure_ascii=False, indent=1))
-    tmp.replace(path)
+    store.write_json(path, obj)
 
 
 # ─── prepare: leads, owners, personal lines, sequences ──────────────────────────────────────────────────────────
@@ -173,11 +168,11 @@ def prepare():
 
     seq = build_seq()
 
-    pc = load(DATA / "people_cache.json", {})
-    site = load(DATA / "site_people.json", {})
-    langs = load(DATA / "lang_cache.json", {})
+    pc = load(store.path("people_cache.json"), {})
+    site = load(store.path("site_people.json"), {})
+    langs = load(store.path("lang_cache.json"), {})
     niches = load(DATA / "niche_cache.json", {})
-    plines = load(DATA / "pline_cache.json", {})
+    plines = load(store.path("pline_cache.json"), {})
     cos = {c["company"]: c for c in csv.DictReader(open(DATA / "companies.csv", encoding="utf-8"))}
     top_vac = {}
     for v in sorted(csv.DictReader(open(DATA / "vacancies.csv", encoding="utf-8")), key=lambda v: -float(v["role_score"] or 0)):
@@ -196,13 +191,13 @@ def prepare():
                 return li
         return None
 
-    old = {l["provider_id"]: l for l in load(LEADS, [])}
-    exclude = set(load(DATA / "campaign_exclude.json", []))  # provider ids or LinkedIn URLs taken out by hand
+    old = {l["provider_id"]: l for l in campaigns.job_leads()}
+    exclude = campaigns.excluded()  # provider ids or LinkedIn URLs taken out by hand
     # people the outreach-helper is already working (queued, invited, messaged...): one sender per person
-    for pub, pid, _ in load(DATA / "exclude_outreach_helper.json", []):
+    for pub, pid, _ in load(store.path("exclude_outreach_helper.json"), []):
         exclude.update(x for x in (pid, pub and f"https://www.linkedin.com/in/{pub}") if x)
     leads = []
-    for r in csv.DictReader(open(DATA / "decision_makers.csv", encoding="utf-8")):
+    for r in csv.DictReader(store.path("decision_makers.csv").open(encoding="utf-8")):
         c = cos.get(r["company"])
         if not r["name"] or not r["person_linkedin"] or not c or c["status"] != "qualified" or c["tier"] not in "AB":
             continue
@@ -238,7 +233,7 @@ def prepare():
                       "niche": niche, "track": track, "lang": lang, "personal_line": pl["line"],
                       "distance": h.get("network_distance"), "owner": prev.get("owner")})
     leads += extra_leads({l["provider_id"] for l in leads} | {l["public_identifier"] for l in leads}, exclude, plines, key, old)
-    save(DATA / "pline_cache.json", plines)
+    save(store.path("pline_cache.json"), plines)
 
     # owners: keep earlier assignments; Ukrainian-language leads to Nazarii; the rest balanced in score order
     leads.sort(key=lambda l: -l["score"])
@@ -255,9 +250,9 @@ def prepare():
         else:
             l["owner"] = min(JB, key=lambda a: (load_n[a], random.random()))
         load_n[l["owner"]] += 1
-    handover(leads, load(STATE, {"leads": {}})["leads"])  # stage resets for moved viewed leads happen in Campaign()
+    handover(leads, campaigns.load_state()["leads"])  # stage resets for moved viewed leads happen in Campaign()
     load_n = {a: sum(l["owner"] == a for l in leads) for a in ACCOUNTS}
-    save(LEADS, leads)
+    campaigns.set_job_leads(leads)
     print(f"[prepare] {len(leads)} leads, owners {load_n}, tracks "
           f"{ {t: sum(l['track'] == t for l in leads) for t in 'AB'} }, langs { {x: sum(l['lang'] == x for l in leads) for x in ('pl', 'en', 'uk')} }")
 
@@ -285,7 +280,7 @@ def extra_leads(have, exclude, plines, key, old):
     from jbscrap.unipile import _tokens
     from judge import ask
     from lang import SCHEMA as LANG_SCHEMA, SYSTEM as LANG_SYSTEM
-    langs = load(DATA / "lang_cache.json", {})
+    langs = load(store.path("lang_cache.json"), {})
     out = []
 
     def lang_of(name, headline, company, hint):
@@ -319,7 +314,7 @@ def extra_leads(have, exclude, plines, key, old):
                     "niche": niche, "track": track, "lang": lang, "personal_line": pl["line"], "distance": None,
                     "degree": degree, "source": src, "owner": (old.get(pid) or {}).get("owner")})
 
-    seeds = [sd for sd in load(DATA / "seed_people.json", [])
+    seeds = [sd for sd in load(store.path("seed_people.json"), [])
              if sd["name"] and not sd["name"].lower().startswith(("linkedin member", "участник", "członek linkedin"))]
     if key:  # language and personal line for many people at once; make() then reads them from the caches
         from concurrent.futures import ThreadPoolExecutor
@@ -342,7 +337,7 @@ def extra_leads(have, exclude, plines, key, old):
             make(f"url:{sd['public_identifier']}", sd["url"], sd["name"], sd["headline"], "", "", "", sd["track"],
                  sd["segment"], sd["score"], lang, sd["degree"], "seed")
 
-    pc = load(DATA / "people_cache.json", {})
+    pc = load(store.path("people_cache.json"), {})
     for c in load(DATA / "company_pool.json", []):
         if "job_boards" in c["sources"] or c.get("verdict") not in ("fit", "maybe") or c["key"] not in pc:
             continue
@@ -363,7 +358,7 @@ def extra_leads(have, exclude, plines, key, old):
                 make(i["id"], url, i["name"], i.get("headline") or "", label, c["name"], c["key"],
                      SEGMENT_TRACK.get(c.get("segment"), "A"), c.get("segment") or "pool", round(float(c.get("fit") or 5) * 7 + 20 * people.ROLE_WEIGHT.get(label, .5), 1),
                      lang, None, "pool")
-    save(DATA / "lang_cache.json", langs)
+    save(store.path("lang_cache.json"), langs)
     print(f"[prepare] +{sum(l['source'] == 'seed' for l in out)} seed people, +{sum(l['source'] == 'pool' for l in out)} from pool companies")
     return out
 
@@ -428,14 +423,14 @@ class Campaign:
         # message templates per campaign; the job-board one comes from the sequences artifact export
         self.seqs = {cid: ({"messages": self.seq["messages"]} if cid == "job_boards" else {"messages": campaigns.messages(cid)})
                      for cid in campaigns.CAMPAIGNS}
-        self.state = load(STATE, {"leads": {}, "accounts": {}, "events": []})
+        self.state = campaigns.load_state(track=True)
         for s in self.state["leads"].values():  # views made under the old 1-2 day gap move to the 1-2 hour one
             if s.get("stage") == "viewed" and s.get("viewed_at") and s.get("invite_after"):
                 v = dt.datetime.fromisoformat(s["viewed_at"])
                 if dt.datetime.fromisoformat(s["invite_after"]) - v > dt.timedelta(hours=3):
                     s["invite_after"] = invite_time(v).isoformat()
         with LOCK:
-            leads = load(LEADS, [])
+            leads = campaigns.job_leads()
             # prepare() may already have moved owners in the lead file; reset the stage of any lead whose owner is
             # active but whose profile view was made by a stopped account
             for l in leads:
@@ -448,14 +443,14 @@ class Campaign:
                     s["stage"] = "queued"
             moved = handover(leads, self.state["leads"])
             if moved:
-                save(LEADS, leads)
+                campaigns.set_job_leads(leads)
                 log(f"handed {moved} not-yet-invited leads to {', '.join(ACTIVE)}")
-            save(STATE, self.state)
+            campaigns.save_state(self.state)
 
     def persist(self):
         with LOCK:
             self.state["events"] = self.state["events"][-3000:]
-            save(STATE, self.state)
+            campaigns.save_state(self.state)
 
     def event(self, account, kind, lead=None, note=""):
         with LOCK:
@@ -757,8 +752,8 @@ class Campaign:
 
 
 def status():
-    leads = load(LEADS, [])
-    state = load(STATE, {"leads": {}})
+    leads = campaigns.job_leads()
+    state = campaigns.load_state()
     from collections import Counter
     c = Counter((l["owner"], state["leads"].get(l["provider_id"], {}).get("stage", "queued")) for l in leads)
     print(json.dumps({f"{a}:{s}": n for (a, s), n in sorted(c.items())}, indent=1))

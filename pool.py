@@ -20,14 +20,15 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+import store
+
 from jbscrap.score import company_key
 
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
 POOL = DATA / "company_pool.json"
-SEEDS = DATA / "seed_people.json"
+SEEDS = store.path("seed_people.json")
 SRC = Path(os.environ.get("SEMI_MANUAL_DIR", ROOT.parent.parent.parent / "semi-manual-dealaris-outreach"))
-LOCAL = DATA / "local_sources"  # copies of the files above, so the Railway image has them too
 TRACK_B_SEGMENTS = {"ua_outsourcing", "ua_ecom_cc", "pl_b2b_telesales", "pl_finance_brokers", "pl_oze"}
 
 
@@ -37,10 +38,10 @@ def domain_of(url):
 
 
 def _rows(name):
-    for base in (LOCAL, SRC / "scraped leads poland", SRC / "icps" / "output"):
-        p = base / name
+    # local_sources: copies of the semi-manual files, so the service has them too
+    for p in (store.path(f"local_sources/{name}"), SRC / "scraped leads poland" / name, SRC / "icps" / "output" / name):
         if p.exists():
-            return list(csv.DictReader(open(p, encoding="utf-8-sig")))
+            return list(csv.DictReader(p.open(encoding="utf-8-sig")))
     return []
 
 

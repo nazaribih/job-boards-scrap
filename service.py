@@ -11,9 +11,10 @@ Env:
   PORT                                      - set by Railway
 
 State lives on a volume mounted at /data: on first boot the repo's data/ is copied there and data/ becomes a
-symlink to it, so the queue's caches survive redeploys. Files that name people (decision_makers.csv, people and
-website caches) stay on the volume and are only served behind the token; GitHub gets companies.csv and
-pipeline_stats.json.
+symlink to it, so the queue's caches survive redeploys. With JB_STORE=db and DATABASE_URL, everything that names
+people (campaign leads and state, decision makers, people and website caches) and the logs are in Postgres instead
+(store.py); the files are copied in on the first start in that mode. Personal data is only served behind the token;
+GitHub gets companies.csv and pipeline_stats.json.
 """
 import base64
 import csv
@@ -27,6 +28,8 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+
+import store
 
 import requests
 
@@ -52,6 +55,8 @@ def mount_volume():
         added = []
         for f in DATA.rglob("*"):  # files and folders the volume doesn't have yet, at any depth
             dst = VOLUME / f.relative_to(DATA)
+            if store.in_db(str(f.relative_to(DATA))):
+                continue  # kept in the database
             if f.is_dir():
                 dst.mkdir(parents=True, exist_ok=True)
             elif not dst.exists():
@@ -62,7 +67,7 @@ def mount_volume():
                 shutil.copy2(f, dst)  # campaign leads/messages and exported texts are inputs: the deployed copy wins
                 added.append(str(f.relative_to(DATA)) + " (updated)")
         src, dst = DATA / "campaign_exclude.json", VOLUME / "campaign_exclude.json"  # people taken out by hand
-        if src.exists() and dst.exists() and "campaign_exclude.json" not in added:
+        if not store.DB and src.exists() and dst.exists() and "campaign_exclude.json" not in added:
             live, new = json.loads(dst.read_text()), json.loads(src.read_text())
             if set(new) - set(live):
                 dst.write_text(json.dumps(live + [x for x in new if x not in live], ensure_ascii=False, indent=1))
@@ -74,6 +79,8 @@ def mount_volume():
                 added.append(str(f.relative_to(DATA)))
         for name in ("lang_cache.json", "pline_cache.json", "niche_cache.json", "judge_cache.json"):
             src, dst = DATA / name, VOLUME / name  # LLM results computed elsewhere: add the keys the volume lacks
+            if not isinstance(store.path(name), Path):
+                dst = store.path(name)  # kept in the database
             if src.exists() and dst.exists() and name not in added:
                 live, new = json.loads(dst.read_text()), json.loads(src.read_text())
                 missing = {k: v for k, v in new.items() if k not in live}
@@ -88,8 +95,8 @@ def mount_volume():
 
 
 def people_count():
-    p = DATA / "decision_makers.csv"
-    return sum(1 for r in csv.DictReader(open(p, encoding="utf-8")) if r["name"]) if p.exists() else 0
+    p = store.path("decision_makers.csv")
+    return sum(1 for r in csv.DictReader(p.open(encoding="utf-8")) if r["name"]) if p.exists() else 0
 
 
 def push_to_github(n):
@@ -98,7 +105,7 @@ def push_to_github(n):
         log("GITHUB_TOKEN / GITHUB_REPO not set, skipping push")
         return
     branch = os.environ.get("GITHUB_BRANCH", "claude/sales-prospect-research-vlgnq1")
-    status = json.loads((DATA / "pipeline_status.json").read_text())
+    status = json.loads(store.path("pipeline_status.json").read_text())
     status.pop("top", None)  # names people
     (DATA / "pipeline_stats.json").write_text(json.dumps(status, ensure_ascii=False, indent=1))
     s = requests.Session()
@@ -132,12 +139,25 @@ def refresh_loop():
                 log(f"github push failed: {e}")
 
 
+def run_logged(args, source, timeout=None):
+    """Run a script, its output going to the log store (jb.log, or data/queue.log / agent.out)."""
+    p = subprocess.Popen([sys.executable, "-u", *args], cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                         text=True, errors="replace")
+    killer = threading.Timer(timeout, p.kill) if timeout else None
+    if killer:
+        killer.start()
+    for line in p.stdout:
+        store.log_line(source, line)
+    code = p.wait()
+    if killer:
+        killer.cancel()
+    return code
+
+
 def queue_loop():
     cap = os.environ.get("QUEUE_CAP", "15")
     while True:
-        with open(DATA / "queue.log", "a") as out:
-            code = subprocess.run([sys.executable, "-u", "linkedin_queue.py", "--cap", cap], cwd=ROOT,
-                                  stdout=out, stderr=subprocess.STDOUT).returncode
+        code = run_logged(["linkedin_queue.py", "--cap", cap], "queue")
         log(f"queue exited with {code}")
         time.sleep(30 * 60 if code else 6 * 3600)  # crashed: retry soon; finished: look for new work later
 
@@ -220,9 +240,15 @@ class Handler(BaseHTTPRequestHandler):
         if not authed:
             return self._send(401, b"unauthorized", "text/plain")
         name = SERVED.get(path)
-        if not name or not (DATA / name).exists():
+        if store.DB and name in store.LOGS:
+            body = store.log_tail(store.LOGS[name]).encode()
+        elif name == "campaign_state.json":
+            import campaigns
+            body = json.dumps(campaigns.load_state(), ensure_ascii=False).encode()
+        elif name and store.path(name).exists():
+            body = store.path(name).read_bytes()
+        else:
             return self._send(404, b"not found", "text/plain")
-        body = (DATA / name).read_bytes()
         if name == "queue.log":
             body = body[-20000:]
         self._send(200, body, "text/csv" if name.endswith(".csv") else "application/json" if name.endswith(".json")
@@ -289,8 +315,7 @@ def agent_loop():
     time.sleep(5 * 60)
     while True:
         try:
-            with open(DATA / "agent.out", "a") as out:
-                subprocess.run([sys.executable, "agent.py", "tick"], cwd=ROOT, stdout=out, stderr=subprocess.STDOUT, timeout=6 * 3600)
+            run_logged(["agent.py", "tick"], "agent", timeout=6 * 3600)
         except Exception as e:
             log(f"agent tick failed: {e}")
         time.sleep(6 * 3600)
@@ -298,6 +323,10 @@ def agent_loop():
 
 def main():
     mount_volume()
+    if store.DB:
+        import campaigns
+        done = store.migrate_from_files(campaigns.migration_files())
+        log("data in Postgres (schema jb)" + (f"; copied from files: {json.dumps(done)[:500]}" if done else ""))
     threading.Thread(target=queue_loop, daemon=True).start()
     threading.Thread(target=refresh_loop, daemon=True).start()
     threading.Thread(target=campaign_loop, daemon=True).start()

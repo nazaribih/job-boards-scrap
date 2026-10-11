@@ -12,6 +12,7 @@ import sys
 from pathlib import Path
 
 import people
+import store
 
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
@@ -33,9 +34,9 @@ def main():
     sh("export_outreach.py")
     sh("report/build.py")
 
-    dm = [r for r in csv.DictReader(open(DATA / "decision_makers.csv", encoding="utf-8")) if r["name"]]
+    dm = [r for r in csv.DictReader(store.path("decision_makers.csv").open(encoding="utf-8")) if r["name"]]
     site = json.loads(people.SITE.read_text()) if people.SITE.exists() else {}
-    state = json.loads((DATA / "linkedin_queue_state.json").read_text()) if (DATA / "linkedin_queue_state.json").exists() else {}
+    state = store.read_json(store.path("linkedin_queue_state.json"), {})
     left = subprocess.run([PY, "linkedin_queue.py", "--status"], cwd=ROOT, capture_output=True, text=True).stdout
     left = json.loads(left) if left.strip().startswith("{") else {}
     today = dt.date.today().isoformat()
@@ -57,7 +58,7 @@ def main():
         "top": sorted(({"company": r["company"], "name": r["name"], "role": r["role"], "score": float(r["lead_score"] or 0),
                         "url": r["person_linkedin"], "source": r["source"]} for r in dm), key=lambda x: -x["score"])[:12],
     }
-    (DATA / "pipeline_status.json").write_text(json.dumps(status, ensure_ascii=False))
+    store.path("pipeline_status.json").write_text(json.dumps(status, ensure_ascii=False))
     print(json.dumps({k: status[k] for k in ("companies", "dm", "website")}, ensure_ascii=False))
 
 

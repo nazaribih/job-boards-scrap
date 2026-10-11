@@ -9,10 +9,11 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+import store
 from judge import ask, load_env
 
 DATA = Path(__file__).resolve().parent / "data"
-CACHE = DATA / "lang_cache.json"
+CACHE = store.path("lang_cache.json")
 SCHEMA = {"type": "object", "additionalProperties": False, "required": ["lang", "origin", "confidence"],
           "properties": {"lang": {"type": "string", "enum": ["pl", "uk", "en"]},
                          "origin": {"type": "string", "description": "Likely origin of the name, e.g. Polish, Ukrainian, Lithuanian, French"},
@@ -27,7 +28,7 @@ Never pick uk for Russian or Belarusian names; use en for those unless the headl
 def main():
     load_env()
     key = os.environ["OPENAI_API_KEY"]
-    rows = [r for r in csv.DictReader(open(DATA / "decision_makers.csv", encoding="utf-8")) if r["name"]]
+    rows = [r for r in csv.DictReader(store.path("decision_makers.csv").open(encoding="utf-8")) if r["name"]]
     cache = json.loads(CACHE.read_text()) if CACHE.exists() else {}
     todo = [r for r in rows if r["name"] not in cache]
 

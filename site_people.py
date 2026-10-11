@@ -22,9 +22,10 @@ import requests
 
 from judge import MODEL, ask, load_env
 from jbscrap.score import company_key
+import store
 
 DATA = Path(__file__).resolve().parent / "data"
-CACHE = DATA / "site_people.json"
+CACHE = store.path("site_people.json")
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0 Safari/537.36"
 LINK_RX = re.compile(r"o-nas|onas|about|zespol|zespół|team|kadra|zarzad|zarząd|management|leadership|kontakt|contact|"
                      r"ludzie|people|firma|company|who-we-are|kim-jestesmy", re.I)
@@ -106,7 +107,7 @@ def main():
     import os
     key = os.environ["OPENAI_API_KEY"]
 
-    have = {r["company"] for r in csv.DictReader(open(DATA / "decision_makers.csv", encoding="utf-8")) if r["name"]}
+    have = {r["company"] for r in csv.DictReader(store.path("decision_makers.csv").open(encoding="utf-8")) if r["name"]}
     found = json.loads((DATA / "sites_found.json").read_text()) if (DATA / "sites_found.json").exists() else {}
     cos = []
     for c in csv.DictReader(open(DATA / "companies.csv", encoding="utf-8")):

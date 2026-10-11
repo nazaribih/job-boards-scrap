@@ -31,14 +31,15 @@ import requests
 import guard
 import people
 from jbscrap.score import company_key
+import store
 from jbscrap.unipile import CACHE as LI_CACHE, _pick, _query
 
 DATA = Path(__file__).resolve().parent / "data"
-STATE = DATA / "linkedin_queue_state.json"
-SITE = DATA / "site_people.json"
+STATE = store.path("linkedin_queue_state.json")
+SITE = store.path("site_people.json")
 POOL = DATA / "company_pool.json"
-QUERIES = DATA / "agent_queries.json"
-ICP_HITS = DATA / "icp_hits.json"
+QUERIES = store.path("agent_queries.json")
+ICP_HITS = store.path("icp_hits.json")
 TZ = ZoneInfo("Europe/Warsaw")
 DAILY_CAP = 25
 RAMP_STEP, RAMP_MAX = 5, 30  # +5 a day per account after each clean working day, up to 30; back to the start on trouble

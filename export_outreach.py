@@ -10,17 +10,18 @@ import csv
 import json
 from pathlib import Path
 
+import store
 from jbscrap.score import company_key
 
 DATA = Path(__file__).resolve().parent / "data"
 
 
 def main():
-    cache = json.loads((DATA / "people_cache.json").read_text())
+    cache = json.loads(store.path("people_cache.json").read_text())
     companies = {c["company"]: c for c in csv.DictReader(open(DATA / "companies.csv", encoding="utf-8"))}
     li = json.loads((DATA / "unipile_cache.json").read_text())
     out = []
-    for r in csv.DictReader(open(DATA / "decision_makers.csv", encoding="utf-8")):
+    for r in csv.DictReader(store.path("decision_makers.csv").open(encoding="utf-8")):
         c = companies.get(r["company"])
         if not r["name"] or not c or c["status"] != "qualified" or c["tier"] not in "AB":
             continue
@@ -40,7 +41,7 @@ def main():
             "top_vacancy": c["top_vacancy"], "top_vacancy_url": c["top_vacancy_url"],
             "mentions_company": r["mentions_company"] == "True",
         })
-    (DATA / "outreach_export.json").write_text(json.dumps(out, ensure_ascii=False, indent=1))
+    store.path("outreach_export.json").write_text(json.dumps(out, ensure_ascii=False, indent=1))
     print(f"{len(out)} people from {len({p['company'] for p in out})} companies -> data/outreach_export.json")
 
 

@@ -22,13 +22,15 @@ from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+import store
+
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
-LOG = DATA / "agent_log.json"
-STATE = DATA / "agent_state.json"
-QUERIES = DATA / "agent_queries.json"
-HITS = DATA / "icp_hits.json"
-SEEDS = DATA / "seed_people.json"
+LOG = store.path("agent_log.json")
+STATE = store.path("agent_state.json")
+QUERIES = store.path("agent_queries.json")
+HITS = store.path("icp_hits.json")
+SEEDS = store.path("seed_people.json")
 PY = sys.executable
 SCRAPE_EVERY_DAYS = 3
 LOW_WATER = 40  # queue tasks left before the agent writes new LinkedIn searches
@@ -66,13 +68,11 @@ def now():
 
 
 def load(p, d):
-    return json.loads(p.read_text()) if p.exists() else d
+    return store.read_json(p, d)
 
 
 def save(p, o):
-    tmp = p.with_suffix(".tmp")
-    tmp.write_text(json.dumps(o, ensure_ascii=False, indent=1))
-    tmp.replace(p)
+    store.write_json(p, o)
 
 
 def note(action, detail, why=""):
@@ -109,8 +109,9 @@ def queue_left():
 
 
 def plan_queries(key, ask):
-    leads = load(DATA / "campaign_leads.json", [])
-    st = load(DATA / "campaign_state.json", {"leads": {}})["leads"]
+    import campaigns
+    leads = campaigns.job_leads()
+    st = campaigns.load_state()["leads"]
     perf = Counter()
     for l in leads:
         s = st.get(l["provider_id"], {})
@@ -169,9 +170,9 @@ def refresh_campaign(key):
         return
     import campaign
     with campaign.LOCK:
-        n_before = len(load(DATA / "campaign_leads.json", []))
+        n_before = len(campaign.campaigns.job_leads())
         campaign.prepare()
-        n_after = len(load(DATA / "campaign_leads.json", []))
+        n_after = len(campaign.campaigns.job_leads())
     if n_after != n_before:
         note("Додав лідів у кампанію", f"+{n_after - n_before} (усього {n_after})")
 

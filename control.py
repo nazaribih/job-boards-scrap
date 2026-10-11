@@ -20,10 +20,7 @@ STAGE_UA = {"queued": "у черзі", "viewed": "профіль перегля�
 
 
 def _state():
-    try:
-        return json.loads((DATA / "campaign_state.json").read_text())
-    except (FileNotFoundError, ValueError):
-        return {"leads": {}, "accounts": {}, "events": []}
+    return campaigns.load_state()
 
 
 def _cid(x):

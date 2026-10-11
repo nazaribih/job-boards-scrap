@@ -19,26 +19,23 @@ import time
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+import store
+
 import requests
 
 DATA = Path(__file__).resolve().parent / "data"
-FILE = DATA / "guard.json"
+FILE = store.path("guard.json")
 TZ = ZoneInfo("Europe/Warsaw")
 ACCOUNTS = {"nazarii": "UNIPILE_ACCOUNT_ID_NAZARII", "hleb": "UNIPILE_ACCOUNT_ID_HLEB"}
 NAMES = {"nazarii": "Назарій", "hleb": "Глеб"}
 
 
 def _load():
-    try:
-        return json.loads(FILE.read_text())
-    except (FileNotFoundError, ValueError):
-        return {}
+    return store.read_json(FILE, {})
 
 
 def _save(g):
-    tmp = FILE.with_suffix(".tmp")
-    tmp.write_text(json.dumps(g, ensure_ascii=False, indent=1))
-    tmp.replace(FILE)
+    store.write_json(FILE, g)
 
 
 def paused_until(account):

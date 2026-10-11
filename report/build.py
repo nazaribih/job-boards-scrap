@@ -1,7 +1,10 @@
 """Render report/dealaris-prospects.html (stats artifact) from data/*.csv."""
 import csv, json, collections, html
 from pathlib import Path
+import sys
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE.parent))
+import store  # decision makers may live in Postgres
 R = str(HERE.parent / "data") + "/"
 v = list(csv.DictReader(open(R+'vacancies.csv')))
 c = list(csv.DictReader(open(R+'companies.csv')))
@@ -54,8 +57,8 @@ TOP = '\n'.join(f'<tr><td class="num">{i}</td><td class="co">{e(x["company"])}</
                 f'<td><a href="{e(x["top_vacancy_url"])}" target="_blank" rel="noopener">{e(x["top_vacancy"])}</a></td>'
                 f'<td><a href="{e(x["li_url"])}" target="_blank" rel="noopener">{e(x["li_url"].rstrip("/").rsplit("/", 1)[-1])}</a></td></tr>'
                 for i, x in enumerate(top, 1))
-dm_path = Path(R + 'decision_makers.csv')
-dm = list(csv.DictReader(open(dm_path))) if dm_path.exists() else []
+dm_path = store.path('decision_makers.csv')
+dm = list(csv.DictReader(dm_path.open())) if dm_path.exists() else []
 dm_people = [x for x in dm if x['name']]
 dm_cos = {x['company'] for x in dm}
 dm_stats = [('Компаній tier A + B', len(dm_cos)), ('З хоча б одним ЛПРом', len({x['company'] for x in dm_people})),

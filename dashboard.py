@@ -23,8 +23,8 @@ NOTE_LABEL = {**STAGE_LABEL, "invited": "Інвайт з повідомленн�
 
 
 def _load(name, default):
-    p = DATA / name
-    return json.loads(p.read_text()) if p.exists() else default
+    import store
+    return store.read_json(store.path(name), default)
 
 
 def _reached(s):
@@ -72,7 +72,7 @@ def research(leads):
 
 def data():
     import campaigns
-    state = _load("campaign_state.json", {"leads": {}, "accounts": {}, "events": []})
+    state = campaigns.load_state()
     leads = campaigns.all_leads(only_enabled=False, state=state["leads"])
     S, now = state["leads"], dt.datetime.now(TZ)
     today = now.date().isoformat()

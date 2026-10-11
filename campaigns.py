@@ -3,12 +3,13 @@
   python campaigns.py list
   python campaigns.py import websummit leads.csv      # add people to a campaign (see import_csv for the columns)
 
-All campaigns share one LinkedIn state (data/campaign_state.json, keyed by person) and one budget per account, so a
+All campaigns share one LinkedIn state (keyed by person) and one budget per account, so a
 person is never approached twice and an account's daily limits hold no matter how many campaigns it sends. A campaign
 runs only when it is listed in CAMPAIGNS_ENABLED (env, comma list; default "job_boards"), has leads and has text for
 every message it would send; a lead whose message text is missing is held back, never sent a half-empty message.
 
-Lead and message files of a campaign are inputs written here or by import_csv; the sender only reads them.
+Leads, switches, texts and the sender's state are in Postgres in production (store.py, JB_STORE=db) and in the
+files named here otherwise; every read and write goes through the functions below.
 """
 import csv
 import json
@@ -16,6 +17,8 @@ import os
 import re
 import sys
 from pathlib import Path
+
+import store
 
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
@@ -71,12 +74,14 @@ def _save(path, obj):
 
 
 def enabled_ids():
-    ctl = _load(CONTROL, {}).get("enabled", {})
+    ctl = store.enabled() if store.DB else _load(CONTROL, {}).get("enabled", {})
     default = [c.strip() for c in os.environ.get("CAMPAIGNS_ENABLED", "job_boards").split(",")]
     return [cid for cid in CAMPAIGNS if ctl.get(cid, cid in default)]
 
 
-def set_enabled(cid, on):
+def set_enabled(cid, on, who=""):
+    if store.DB:
+        return store.set_enabled(cid, on, who)
     ctl = _load(CONTROL, {})
     ctl.setdefault("enabled", {})[cid] = bool(on)
     _save(CONTROL, ctl)
@@ -89,27 +94,54 @@ def stages(cid):
 def messages(cid):
     """Deployed texts, with edits made from the dashboard or Telegram on top."""
     base = _load(CAMPAIGNS[cid]["sequences"], {}).get("messages", {})
-    return {**base, **_load(f"campaigns/{cid}/messages_live.json", {})}
+    return {**base, **(store.messages(cid) if store.DB else _load(f"campaigns/{cid}/messages_live.json", {}))}
 
 
-def set_message(cid, key, text):
+def set_message(cid, key, text, who=""):
+    if store.DB:
+        return store.set_message(cid, key, text, who)
     live = _load(f"campaigns/{cid}/messages_live.json", {})
     live[key] = text
     _save(f"campaigns/{cid}/messages_live.json", live)
 
 
 def leads(cid):
-    out = []
-    for l in _load(CAMPAIGNS[cid]["leads"], []) + _load(f"campaigns/{cid}/added.json", []):
-        out.append({**l, "campaign": cid})
-    return out
+    raw = store.leads(cid) if store.DB else _load(CAMPAIGNS[cid]["leads"], []) + _load(f"campaigns/{cid}/added.json", [])
+    return [{**l, "campaign": cid} for l in raw]
+
+
+def job_leads():
+    """The job-board campaign's generated list (campaign.prepare), without hand-added people."""
+    return store.leads("job_boards", "prepare") if store.DB else _load(CAMPAIGNS["job_boards"]["leads"], [])
+
+
+def set_job_leads(items):
+    if store.DB:
+        return store.set_leads("job_boards", items, "prepare")
+    _save(CAMPAIGNS["job_boards"]["leads"], items)
+
+
+def load_state(track=False):
+    """The sender's state: {"leads": {provider_id: ...}, "accounts": {...}, "events": [...], ...}."""
+    if store.DB:
+        return store.load_state(track=track)
+    st = _load("campaign_state.json", {})
+    return {"leads": {}, "accounts": {}, "events": [], **st}
+
+
+def save_state(state):
+    if store.DB:
+        return store.save_state(state)
+    _save("campaign_state.json", state)
 
 
 def excluded():
-    return set(_load(EXCLUDE, []))
+    return store.excluded() if store.DB else set(_load(EXCLUDE, []))
 
 
-def set_excluded(keys, on):
+def set_excluded(keys, on, who=""):
+    if store.DB:
+        return store.set_excluded(keys, on, who)
     ex = excluded()
     ex = (ex | set(keys)) if on else (ex - set(keys))
     _save(EXCLUDE, sorted(ex))
@@ -146,6 +178,9 @@ def add_lead(cid, url, name="", company="", role="", track="", note="", lang="")
             "company": company, "company_short": short_company(company), "company_key": pub, "role": role, "headline": role,
             "lang": lang or c["langs"][0], "track": track, "personal_line": "", "note": note, "score": 75.0,
             "niche": c["name"], "source": "manual", "tier": "", "owner": c["accounts"][0]}
+    if store.DB:
+        store.add_lead(cid, lead)
+        return lead
     added = _load(f"campaigns/{cid}/added.json", [])
     added.append(lead)
     _save(f"campaigns/{cid}/added.json", added)
@@ -200,6 +235,11 @@ def summary():
     return out
 
 
+def migration_files():
+    """For store.migrate_from_files: each campaign's lead, live-text and hand-added files."""
+    return {cid: (c["leads"], f"campaigns/{cid}/messages_live.json", f"campaigns/{cid}/added.json") for cid, c in CAMPAIGNS.items()}
+
+
 def import_csv(cid, path):
     """Add people to a campaign from a CSV with columns:
          linkedin_url (required), name, company, role, lang (pl/en/uk; guessed when empty), track (A/B, default A),
@@ -207,7 +247,7 @@ def import_csv(cid, path):
          available to messages as {note}), score (0-100, default 70).
     Existing people in the campaign are updated, not duplicated."""
     c = CAMPAIGNS[cid]
-    have = {l["public_identifier"]: l for l in _load(c["leads"], [])}
+    have = {l["public_identifier"]: l for l in (store.leads(cid, "import") if store.DB else _load(c["leads"], []))}
     added = updated = 0
     for r in csv.DictReader(open(path, encoding="utf-8-sig")):
         url = (r.get("linkedin_url") or "").split("?")[0].rstrip("/")
@@ -225,9 +265,10 @@ def import_csv(cid, path):
         updated += pub in have
         added += pub not in have
         have[pub] = lead
-    p = DATA / c["leads"]
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(list(have.values()), ensure_ascii=False, indent=1))
+    if store.DB:
+        store.set_leads(cid, list(have.values()), "import")
+    else:
+        _save(c["leads"], list(have.values()))
     print(f"[{cid}] {added} added, {updated} updated, {len(have)} in the campaign")
 
 

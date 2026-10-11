@@ -18,11 +18,12 @@ from pathlib import Path
 import requests
 
 from jbscrap.score import company_key, fold
+import store
 from jbscrap.unipile import _tokens
 
 DATA = Path(__file__).resolve().parent / "data"
-CACHE = DATA / "people_cache.json"
-SITE = DATA / "site_people.json"
+CACHE = store.path("people_cache.json")
+SITE = store.path("site_people.json")
 TERMS = ["CEO", "sales", "sprzedaży"]  # the last one only when the first two found fewer than 2 people
 
 # (rank, label, pattern on the folded headline) - lower rank = more senior buyer
@@ -176,7 +177,7 @@ def write_csv(companies, skipped, cache, per_company):
     cols = ["company", "tier", "company_score", "li_headcount", "company_linkedin", "website", "rank", "lead_score",
             "name", "role", "headline", "person_linkedin", "source", "source_url", "email", "phone", "mentions_company", "dm_searched", "llm_verdict", "llm_fit", "llm_channel", "llm_reason",
             "top_vacancy", "top_vacancy_url"]
-    with open(DATA / "decision_makers.csv", "w", newline="", encoding="utf-8") as f:
+    with store.path("decision_makers.csv").open("w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=cols)
         w.writeheader()
         w.writerows(rows)
