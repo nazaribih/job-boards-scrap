@@ -5,7 +5,8 @@
   python campaign.py status      # counts by stage and account
 
 Per lead, one owner (Nazarii or Hleb) does everything: views the profile, sends a connection request without a
-note a day or more later, and after acceptance sends four messages (day 0, 3, 6, 9). Any reply, any earlier
+note a day or more later, and after acceptance sends four messages (day 0, 3, 6, 9). A campaign with invite_note
+(Web Summit) instead puts its one message into the connection request and sends nothing after. Any reply, any earlier
 conversation with either account, or an invite already pending stops automation for that person for good.
 
 Owner: a 1st-degree connection of one founder goes to that founder (no invite needed); Ukrainian-language leads
@@ -29,6 +30,7 @@ from zoneinfo import ZoneInfo
 
 import requests
 
+import campaigns
 import guard
 
 ROOT = Path(__file__).resolve().parent
@@ -42,8 +44,32 @@ TZ = ZoneInfo("Europe/Warsaw")
 ACCOUNTS = {"nazarii": "UNIPILE_ACCOUNT_ID_NAZARII", "hleb": "UNIPILE_ACCOUNT_ID_HLEB"}
 STAGES = ["m1", "f1", "f2", "f3"]
 GAP_DAYS = {"f1": 3, "f2": 3, "f3": 3}
-CAPS = {"view": 15, "message": 25}
-INVITE_START, INVITE_STEP, INVITE_MAX, INVITE_WEEK = 12, 2, 20, 90
+CAPS = {"view": 25, "message": 25}
+INVITE_START, INVITE_STEP, INVITE_MAX, INVITE_WEEK = 12, 2, 20, 100
+# accounts this campaign runs on (env CAMPAIGN_ACCOUNTS, e.g. "hleb"). A stopped account's leads that were never
+# invited move to an active one; leads it already invited or messaged stay with it, untouched, so nobody is
+# approached by two founders.
+# accounts that send anything: the union of the enabled campaigns' accounts (campaigns.py)
+ACTIVE = campaigns.accounts_in_use()
+# the job-board campaign's own accounts: prepare() assigns and hands over its leads among these only
+JB = campaigns.CAMPAIGNS["job_boards"]["accounts"]
+HANDOVER_STAGES = ("queued", "viewed")
+
+
+def handover(leads, state):
+    """Give an active account every not-yet-invited lead of a stopped one. Returns how many moved."""
+    moved = 0
+    for l in leads:
+        s = state.get(l["provider_id"], {})
+        if l.get("owner") in JB or s.get("stage", "queued") not in HANDOVER_STAGES:
+            continue
+        l["owner"] = min(JB, key=lambda a: sum(x["owner"] == a for x in leads))
+        if s.get("stage") == "viewed":  # the new owner views the profile itself before inviting
+            for k in ("stage", "viewed_at", "invite_after", "distance"):
+                s.pop(k, None)
+            s["stage"] = "queued"
+        moved += 1
+    return moved
 TRACK_B = {"Call-центр / BPO / аутсорс продажів", "Windykacja / стягнення боргів", "Фінанси / кредити / страхування",
            "Телеком", "Логістика / транспорт", "Енергетика / ОЗЕ", "Нерухомість"}
 NICHE_LINE = {"B2B SaaS": "saas", "IT-послуги / software house": "it", "Маркетинг / реклама / lead-gen": "agency",
@@ -221,12 +247,16 @@ def prepare():
         if l["owner"]:
             continue
         deg = l.get("degree") or {}
-        rank = {a: DEGREE_RANK.get((deg.get(a) or "").strip().lower(), 9) for a in ACCOUNTS}
+        rank = {a: DEGREE_RANK.get((deg.get(a) or "").strip().lower(), 9) for a in JB}
         if min(rank.values()) < 9 and len(set(rank.values())) > 1:
             l["owner"] = min(rank, key=rank.get)  # whoever is closer in the network
+        elif l["lang"] == "uk" and "nazarii" in JB:
+            l["owner"] = "nazarii"
         else:
-            l["owner"] = "nazarii" if l["lang"] == "uk" else min(ACCOUNTS, key=lambda a: (load_n[a], random.random()))
+            l["owner"] = min(JB, key=lambda a: (load_n[a], random.random()))
         load_n[l["owner"]] += 1
+    handover(leads, load(STATE, {"leads": {}})["leads"])  # stage resets for moved viewed leads happen in Campaign()
+    load_n = {a: sum(l["owner"] == a for l in leads) for a in ACCOUNTS}
     save(LEADS, leads)
     print(f"[prepare] {len(leads)} leads, owners {load_n}, tracks "
           f"{ {t: sum(l['track'] == t for l in leads) for t in 'AB'} }, langs { {x: sum(l['lang'] == x for l in leads) for x in ('pl', 'en', 'uk')} }")
@@ -341,7 +371,7 @@ def extra_leads(have, exclude, plines, key, old):
 def render(lead, stage, seq):
     text = seq["messages"].get(f"{lead['track']}-{lead['lang']}-{stage}", "")
     return (text.replace("{personal_line}", lead["personal_line"]).replace("{first_name}", lead["first_name"])
-            .replace("{company}", lead["company_short"])).strip()
+            .replace("{company}", lead["company_short"]).replace("{note}", lead.get("note", ""))).strip()
 
 
 # ─── run: the sender ────────────────────────────────────────────────────────────────────────────────────────────
@@ -395,12 +425,32 @@ class Campaign:
     def __init__(self):
         self.api = Api()
         self.seq = build_seq()
+        # message templates per campaign; the job-board one comes from the sequences artifact export
+        self.seqs = {cid: ({"messages": self.seq["messages"]} if cid == "job_boards" else {"messages": campaigns.messages(cid)})
+                     for cid in campaigns.CAMPAIGNS}
         self.state = load(STATE, {"leads": {}, "accounts": {}, "events": []})
         for s in self.state["leads"].values():  # views made under the old 1-2 day gap move to the 1-2 hour one
             if s.get("stage") == "viewed" and s.get("viewed_at") and s.get("invite_after"):
                 v = dt.datetime.fromisoformat(s["viewed_at"])
                 if dt.datetime.fromisoformat(s["invite_after"]) - v > dt.timedelta(hours=3):
                     s["invite_after"] = invite_time(v).isoformat()
+        with LOCK:
+            leads = load(LEADS, [])
+            # prepare() may already have moved owners in the lead file; reset the stage of any lead whose owner is
+            # active but whose profile view was made by a stopped account
+            for l in leads:
+                s = self.state["leads"].get(l["provider_id"], {})
+                if s.get("stage") == "viewed" and "viewed_by" not in s:
+                    s["viewed_by"] = l["owner"]  # views made before viewed_by was recorded were by the owner then
+                if s.get("stage") == "viewed" and s.get("viewed_by") not in (None, l["owner"]):
+                    for k in ("viewed_at", "invite_after", "distance", "viewed_by"):
+                        s.pop(k, None)
+                    s["stage"] = "queued"
+            moved = handover(leads, self.state["leads"])
+            if moved:
+                save(LEADS, leads)
+                log(f"handed {moved} not-yet-invited leads to {', '.join(ACTIVE)}")
+            save(STATE, self.state)
 
     def persist(self):
         with LOCK:
@@ -423,6 +473,10 @@ class Campaign:
             clean = a.get("day") and not a.get("had_error") and a.get("used", {}).get("invite", 0) > 0
             a["invite_cap"] = min(INVITE_MAX, a.get("invite_cap", INVITE_START) + (INVITE_STEP if clean else 0))
             a.update(day=today, used={"view": 0, "invite": 0, "message": 0}, had_error=False)
+        # a campaign can set where its account's invite ramp starts; applied once when the account joins it
+        for cid, c in campaigns.CAMPAIGNS.items():
+            if account in c["accounts"] and c.get("invite_start") and a.get("ramp_for") != cid:
+                a.update(invite_cap=c["invite_start"], ramp_for=cid)
         return a
 
     def can(self, account, kind):
@@ -492,7 +546,7 @@ class Campaign:
             s.update(stage="skipped", reason=f"profile {code}")
             return self.event(account, "skipped", lead, f"profile {code}")
         dist = body.get("network_distance")
-        s.update(viewed_at=now().isoformat(), distance=dist)
+        s.update(viewed_at=now().isoformat(), distance=dist, viewed_by=account)
         if body.get("provider_id"):
             s["pid"] = body["provider_id"]
         elif lead["provider_id"].startswith("url:"):
@@ -511,8 +565,15 @@ class Campaign:
         if self.had_conversation(account, lead):
             s.update(stage="skipped", reason="earlier conversation")
             return self.event(account, "skipped", lead, "earlier conversation")
-        code, body = self.api.call(account, "POST", "/api/v1/users/invite", json={
-            "provider_id": self.pid(lead), "account_id": os.environ[ACCOUNTS[account]]})
+        payload = {"provider_id": self.pid(lead), "account_id": os.environ[ACCOUNTS[account]]}
+        cid = lead.get("campaign", "job_boards")
+        if campaigns.CAMPAIGNS[cid].get("invite_note"):  # the message goes with the invite
+            text = render(lead, "m1", self.seqs.get(cid, self.seq))
+            if not text or "{" in text or len(text) > campaigns.NOTE_MAX:
+                s.update(stage="skipped", reason=f"invite note: {'no text' if not text or '{' in text else f'{len(text)} chars'}")
+                return self.event(account, "skipped", lead, s["reason"])
+            payload["message"] = text
+        code, body = self.api.call(account, "POST", "/api/v1/users/invite", json=payload)
         self.spend(account, "invite")
         if code in (401, 403, 429):
             return self.trouble(account, code, body)
@@ -523,9 +584,12 @@ class Campaign:
             s.update(stage="skipped", reason=f"invite {code}: {note}")
             return self.event(account, "skipped", lead, f"invite {code}: {note}")
         s.update(stage="invited", invited_at=now().isoformat())
+        if payload.get("message"):
+            s.update(note_sent=True, next_stage=None, next_at=None)
+            s.setdefault("sent", {})["m1"] = s["invited_at"]
         with LOCK:
             self.state.setdefault("company_invites", {})[lead["company_key"]] = now().isoformat()
-        self.event(account, "invited", lead)
+        self.event(account, "invited", lead, "з повідомленням" if payload.get("message") else "")
 
     def message(self, account, lead):
         s = self.st(lead)
@@ -545,7 +609,7 @@ class Campaign:
             if voc is None:
                 return log(f"{account}: no Ukrainian first name for {lead['name']!r} yet, retrying later")
             lead = {**lead, "first_name": voc or lead["first_name"]}
-        text = render(lead, stage, self.seq)
+        text = render(lead, stage, self.seqs.get(lead.get("campaign", "job_boards"), self.seq))
         if not text or "{" in text:
             s.update(stage="skipped", reason=f"no text for {lead['track']}-{lead['lang']}-{stage}")
             return self.event(account, "skipped", lead, "no message text")
@@ -564,12 +628,13 @@ class Campaign:
         s.setdefault("sent", {})[stage] = now().isoformat()
         if body.get("chat_id"):
             s["chat_id"] = body["chat_id"]
-        nxt = STAGES[STAGES.index(stage) + 1] if stage != STAGES[-1] else None
+        cst = campaigns.stages(lead.get("campaign", "job_boards"))  # a campaign may send fewer than four messages
+        nxt = cst[cst.index(stage) + 1] if stage in cst and stage != cst[-1] else None
         s.update(stage=f"sent_{stage}", next_stage=nxt,
                  next_at=next_working(now(), GAP_DAYS[nxt]).isoformat() if nxt else None)
         if not nxt:
             s["stage"] = "done"
-        self.event(account, f"message {STAGES.index(stage) + 1}", lead)
+        self.event(account, f"message {STAGES.index(stage) + 1}", lead, lead.get("campaign", ""))
 
     # ── sync: acceptances and replies ──
     def sync(self, account, leads):
@@ -580,16 +645,30 @@ class Campaign:
         ids = {i.get("member_id") for i in body.get("items") or []} | {i.get("public_identifier") for i in body.get("items") or []}
         for pid, l in mine.items():
             s = self.st(l)
-            if s["stage"] == "invited" and (self.pid(l) in ids or l["public_identifier"] in ids):
+            if s["stage"] == "invited" and s.get("note_sent") and (self.pid(l) in ids or l["public_identifier"] in ids):
+                s.update(stage="done", connected_at=now().isoformat())  # the message was in the invite: nothing more to send
+                self.event(account, "accepted", l)
+            elif s["stage"] == "invited" and (self.pid(l) in ids or l["public_identifier"] in ids):
                 s.update(stage="connected", connected_at=now().isoformat(), next_stage="m1",
                          next_at=(now() + dt.timedelta(minutes=random.randint(60, 300))).isoformat())
                 self.event(account, "accepted", l)
             elif s["stage"] == "invited" and dt.datetime.fromisoformat(s["invited_at"]) < now() - dt.timedelta(days=21):
                 s.update(stage="expired")
                 self.event(account, "invite expired", l)
-        for l in mine.values():  # replies between scheduled messages
+        # invitation notes: find the conversation once it exists (a reply to the note, or the accepted invite), with one
+        # call per sync rather than one per person
+        notes = {self.pid(l): l for l in mine.values() if self.st(l).get("note_sent") and not self.st(l).get("chat_id")
+                 and self.st(l)["stage"] in ("invited", "done")}
+        if notes:
+            code, body = self.api.call(account, "GET", "/api/v1/chats", {"limit": 100})
+            if code in (401, 403, 429):
+                return self.trouble(account, code, body)
+            for c in body.get("items") or []:
+                if c.get("attendee_provider_id") in notes:
+                    self.st(notes[c["attendee_provider_id"]])["chat_id"] = c["id"]
+        for l in mine.values():  # replies between scheduled messages, and to invitation notes
             s = self.st(l)
-            if s.get("chat_id") and s["stage"].startswith("sent_"):
+            if s.get("chat_id") and (s["stage"].startswith("sent_") or s.get("note_sent") and s["stage"] in ("invited", "done")):
                 r = self.replied(account, l)
                 if r:
                     s.update(stage="replied", replied_at=now().isoformat(), next_at=None)
@@ -601,8 +680,17 @@ class Campaign:
     def pick(self, account, leads):
         """Next action for this account: due messages first, then invites, then profile views."""
         t = now()
-        mine = [l for l in leads if l["owner"] == account]
-        due = [l for l in mine if self.st(l)["stage"] in ("connected",) or self.st(l)["stage"].startswith("sent_")]
+        # a lead is only touched once its campaign has text for all four of its messages, so nobody gets an invite
+        # and then silence, or half a sequence
+        mine = [l for l in leads if l["owner"] == account and self.ready(l)
+                and account in campaigns.CAMPAIGNS[l.get("campaign", "job_boards")]["accounts"]]
+        for l in mine:  # handed over after someone else viewed the profile: view it ourselves first
+            s = self.st(l)
+            if s["stage"] == "viewed" and s.get("viewed_by") not in (None, account):
+                for k in ("viewed_at", "invite_after", "distance", "viewed_by"):
+                    s.pop(k, None)
+                s["stage"] = "queued"
+        due =[l for l in mine if self.st(l)["stage"] in ("connected",) or self.st(l)["stage"].startswith("sent_")]
         due = [l for l in due if self.st(l).get("next_at") and dt.datetime.fromisoformat(self.st(l)["next_at"]) <= t]
         if due and self.can(account, "message"):
             return "message", due[0]
@@ -619,6 +707,21 @@ class Campaign:
             return "view", new[0]
         return None, None
 
+    def ready(self, lead):
+        msgs = self.seqs.get(lead.get("campaign", "job_boards"), self.seq)["messages"]
+        return all(msgs.get(f"{lead['track']}-{lead['lang']}-{st}", "").strip()
+                   for st in campaigns.stages(lead.get("campaign", "job_boards")))
+
+    def leads(self):
+        # re-read every pass: campaigns switched on/off, people stopped and texts edited from the dashboard or
+        # Telegram take effect without a restart
+        self.seqs = {cid: {"messages": campaigns.messages(cid)} for cid in campaigns.CAMPAIGNS}
+        ex = campaigns.excluded()
+        pri = {cid: c["priority"] for cid, c in campaigns.CAMPAIGNS.items()}
+        return sorted((l for l in campaigns.all_leads(state=self.state["leads"])
+                       if not {l["provider_id"], l["url"], l["url"].rstrip("/")} & ex),
+                      key=lambda l: (-pri.get(l["campaign"], 0), -l["score"]))
+
     def work(self, account):
         nap(random.uniform(0, 15 * 60))
         last_sync = 0
@@ -627,9 +730,10 @@ class Campaign:
             if not in_hours(t):
                 nap(15 * 60)
                 continue
-            ex = set(load(DATA / "campaign_exclude.json", []))
-            leads = sorted((l for l in load(LEADS, []) if not {l["provider_id"], l["url"], l["url"].rstrip("/")} & ex),
-                           key=lambda l: -l["score"])
+            if account not in campaigns.accounts_in_use():  # no running campaign sends from this account
+                nap(10 * 60)
+                continue
+            leads = self.leads()
             if time.time() - last_sync > random.uniform(90, 150) * 60:
                 self.sync(account, leads)
                 last_sync = time.time()
@@ -644,7 +748,7 @@ class Campaign:
             nap(random.lognormvariate(5.6, 0.35))  # ~3-9 min, mostly around 4.5
 
     def run(self):
-        log(f"campaign started: {len(load(LEADS, []))} leads")
+        log(f"campaigns {', '.join(campaigns.enabled_ids())} started: {len(self.leads())} leads, sending from {', '.join(ACTIVE)}")
         ths = [threading.Thread(target=self.work, args=(a,), name=a, daemon=True) for a in ACCOUNTS]
         for t in ths:
             t.start()

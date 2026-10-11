@@ -57,6 +57,10 @@ def mount_volume():
             elif not dst.exists():
                 shutil.copy2(f, dst)
                 added.append(str(f.relative_to(DATA)))
+            elif (str(f.relative_to(DATA)).startswith("seq_export/") or (str(f.relative_to(DATA)).startswith("campaigns/")
+                  and f.name in ("leads.json", "sequences.json"))) and f.read_bytes() != dst.read_bytes():
+                shutil.copy2(f, dst)  # campaign leads/messages and exported texts are inputs: the deployed copy wins
+                added.append(str(f.relative_to(DATA)) + " (updated)")
         src, dst = DATA / "campaign_exclude.json", VOLUME / "campaign_exclude.json"  # people taken out by hand
         if src.exists() and dst.exists() and "campaign_exclude.json" not in added:
             live, new = json.loads(dst.read_text()), json.loads(src.read_text())
@@ -138,6 +142,21 @@ def queue_loop():
         time.sleep(30 * 60 if code else 6 * 3600)  # crashed: retry soon; finished: look for new work later
 
 
+def _actions():
+    import control
+    return {
+        "/api/campaign": lambda b: control.toggle(b.get("campaign", ""), bool(b.get("enabled"))),
+        "/api/lead/stop": lambda b: control.stop_lead(b.get("q", ""), True),
+        "/api/lead/resume": lambda b: control.stop_lead(b.get("q", ""), False),
+        "/api/lead/add": lambda b: control.add_lead(b.get("campaign", ""), b.get("url", ""), b.get("name", ""), b.get("company", ""),
+                                                    b.get("role", ""), b.get("track", ""), b.get("note", "")),
+        "/api/message": lambda b: control.set_message(b.get("campaign", ""), b.get("key", ""), b.get("text", "")),
+    }
+
+
+ACTIONS = {"/api/campaign": None, "/api/lead/stop": None, "/api/lead/resume": None, "/api/lead/add": None, "/api/message": None}
+
+
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         token = os.environ.get("SERVICE_TOKEN")
@@ -169,6 +188,18 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             return self.wfile.write(body)
+        if path in ("/api/summary", "/api/lead", "/api/messages"):
+            if not authed:
+                return self._send(401, b"unauthorized", "text/plain")
+            import control
+            from urllib.parse import parse_qs
+            q = {k: v[0] for k, v in parse_qs(query).items()}
+            try:
+                res = (control.summary() if path == "/api/summary" else control.find(q.get("q", "")) if path == "/api/lead"
+                       else control.messages(q.get("campaign", "")))
+            except ValueError as e:
+                return self._json(400, {"ok": False, "error": str(e)})
+            return self._json(200, res)
         if path == "/api/campaign.json":
             if not authed:
                 return self._send(401, b"unauthorized", "text/plain")
@@ -215,7 +246,23 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Location", f"/resume?account={acc}")
             self.end_headers()
             return
+        if path.startswith("/api/") and path in ACTIONS:
+            n = int(self.headers.get("Content-Length") or 0)
+            try:
+                body = json.loads(self.rfile.read(n) or b"{}")
+            except ValueError:
+                return self._json(400, {"ok": False, "error": "тіло запиту має бути JSON"})
+            who = body.pop("_who", "дашборд")
+            try:
+                res = _actions()[path](body)
+            except ValueError as e:
+                return self._json(400, {"ok": False, "error": str(e)})
+            log(f"{who}: {path} {json.dumps(body, ensure_ascii=False)[:200]} -> {res.get('text', 'ok')}")
+            return self._json(200, res)
         return self._send(404, b"not found", "text/plain")
+
+    def _json(self, code, obj):
+        return self._send(code, json.dumps(obj, ensure_ascii=False).encode(), "application/json")
 
     def _send(self, code, body, ctype):
         self.send_response(code)

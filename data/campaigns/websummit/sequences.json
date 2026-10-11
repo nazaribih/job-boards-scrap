@@ -1,0 +1,6 @@
+{
+ "messages": {
+  "A-en-m1": "Hi {first_name}, saw you’re at Web Summit too. I’m building Dealaris, a real-time AI copilot for sales calls, and I’d really value a sales leader’s take on it. Going to any side events? Would be great to grab a coffee there.",
+  "B-en-m1": "Hi {first_name}, saw you’re heading to Web Summit as well. I’m building Dealaris, a real-time AI copilot for sales calls, and I’m curious how {company} runs sales today. Any side events on your list? Would be good to chat in person."
+ }
+}

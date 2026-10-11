@@ -1,0 +1,787 @@
+{
+ "zdrowasylwetkabienkozarebska": {
+  "company": "Zdrowa Sylwetka Bieńko Zarębska Spółka Komandytowa",
+  "website": "https://zdrowasylwetka.pl/",
+  "from": "llm"
+ },
+ "hireglobalspolkazoo": {
+  "company": "Hire Global Spółka z o.o.",
+  "website": "https://www.hireglobal.pl/",
+  "from": "llm"
+ },
+ "krajowaagencjazwrotubankowego": {
+  "company": "KRAJOWA AGENCJA ZWROTU BANKOWEGO sp. z o.o.",
+  "website": null
+ },
+ "axendi": {
+  "company": "Axendi",
+  "website": "https://axendi.com/",
+  "from": "llm"
+ },
+ "orangepartnerimpro": {
+  "company": "Orange partner - Impro Sp.k",
+  "website": "https://www.impro.pl/",
+  "from": "llm"
+ },
+ "rebelscustoms": {
+  "company": "REBELS CUSTOMS sp. z o.o.",
+  "website": "https://www.rebelscustoms.com/",
+  "from": "llm"
+ },
+ "gkfarmacol": {
+  "company": "GK Farmacol",
+  "website": "https://farmacol.pl/",
+  "from": "llm"
+ },
+ "ftppl": {
+  "company": "FTP PL sp. z o.o.",
+  "website": null
+ },
+ "arteriacustomerexperience": {
+  "company": "Arteria Customer Experience",
+  "website": "https://arteria.pl/",
+  "from": "llm"
+ },
+ "consultingsolutionslukaszwalter": {
+  "company": "Consulting Solutions Łukasz Walter",
+  "website": null
+ },
+ "taxjobslegal": {
+  "company": "TAX JOBS LEGAL POLSKA sp. z o.o.",
+  "website": null
+ },
+ "farmaceutycznaspoldzielniapracyfilofarm": {
+  "company": "Farmaceutyczna Spółdzielnia Pracy Filofarm",
+  "website": "http://www.filofarm.com.pl",
+  "from": "llm"
+ },
+ "logisatkalinowskibrudekspolkakomandytowoakcyjna": {
+  "company": "LOGISAT KALINOWSKI BRUDEK SPÓŁKA KOMANDYTOWO - AKCYJNA",
+  "website": null
+ },
+ "salesmasters": {
+  "company": "SALES MASTERS sp. z o.o.",
+  "website": "https://salesmasters.pl/",
+  "from": "llm"
+ },
+ "krajowakancelariawindykacyjna": {
+  "company": "KRAJOWA KANCELARIA WINDYKACYJNA sp. z o.o.",
+  "website": "http://krajowakancelaria.pl/",
+  "from": "llm"
+ },
+ "finansyssolutions": {
+  "company": "FinanSys Solutions Ltd",
+  "website": "https://finansys.com/",
+  "from": "llm"
+ },
+ "nordcapitaladrianbyszewskiiwspolnicy": {
+  "company": "NORD CAPITAL SPÓŁKA JAWNA ADRIAN BYSZEWSKI I WSPÓLNICY",
+  "website": null
+ },
+ "milosolutionsou": {
+  "company": "Milo Solutions OU",
+  "website": "https://www.milosolutions.com/",
+  "from": "llm"
+ },
+ "loudbee": {
+  "company": "LOUDBEE sp. z o.o.",
+  "website": "https://loudbee.pl/",
+  "from": "llm"
+ },
+ "zdrowasylwetka": {
+  "company": "Zdrowa Sylwetka",
+  "website": "https://zdrowasylwetka.pl/",
+  "from": "llm"
+ },
+ "kcalmar": {
+  "company": "Kcalmar",
+  "website": "http://kcalmar.pl/",
+  "from": "llm"
+ },
+ "sobotajachirakancelariaprawna": {
+  "company": "SOBOTA JACHIRA KANCELARIA PRAWNA SPÓŁKA KOMANDYTOWA",
+  "website": "https://www.sobotajachira.pl/",
+  "from": "llm"
+ },
+ "mellon": {
+  "company": "MELLON POLAND Sp. z o.o.",
+  "website": "https://mellon.pl/",
+  "from": "llm"
+ },
+ "brainspheresinglememberpccallcenterservices": {
+  "company": "BRAINSPHERE SINGLE MEMBER PC CALL CENTER SERVICES",
+  "website": null
+ },
+ "cargonicecom": {
+  "company": "CARGONICE.COM sp. z o.o.",
+  "website": "https://cargonice.com/",
+  "from": "llm"
+ },
+ "yousellpl": {
+  "company": "YOU SELL PL sp. z o.o.",
+  "website": "https://yousellallegro.pl/?password-protected=login&redirect_to=https%3A%2F%2Fyousellallegro.pl%2F",
+  "from": "llm"
+ },
+ "lentria": {
+  "company": "LENTRIA SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ",
+  "website": "https://lentria.pl/",
+  "from": "llm"
+ },
+ "ybmexport": {
+  "company": "YBM EXPORT sp. z o.o.",
+  "website": null
+ },
+ "europejskiinstytutodszkodowan": {
+  "company": "EUROPEJSKI INSTYTUT ODSZKODOWAŃ sp. z o.o.",
+  "website": null
+ },
+ "saloner": {
+  "company": "SALONER sp. z o.o.",
+  "website": "https://saloner.pl/",
+  "from": "llm"
+ },
+ "viktorcom": {
+  "company": "Viktor.com",
+  "website": "https://viktor.com/",
+  "from": "llm"
+ },
+ "procivisag": {
+  "company": "Procivis AG",
+  "website": "https://www.procivis.ch/",
+  "from": "llm"
+ },
+ "smartware": {
+  "company": "SMARTWARE",
+  "website": "https://smartware.pl/",
+  "from": "llm"
+ },
+ "wazdanserviceslimited": {
+  "company": "Wazdan Services Limited",
+  "website": null,
+  "from": "llm"
+ },
+ "foap": {
+  "company": "Foap",
+  "website": "https://www.foap.com/",
+  "from": "llm"
+ },
+ "promedica24": {
+  "company": "Promedica24",
+  "website": "https://promedica24.com.pl/",
+  "from": "llm"
+ },
+ "codetwo": {
+  "company": "CodeTwo",
+  "website": "https://www.codetwo.com/",
+  "from": "llm"
+ },
+ "armatis": {
+  "company": "Armatis Polska Sp. Z o. o.",
+  "website": "https://www.armatis.com",
+  "from": "llm"
+ },
+ "hirewiseszymonnegacz": {
+  "company": "HireWise Szymon Negacz sp.k.",
+  "website": "https://hirewise.pl/",
+  "from": "llm"
+ },
+ "omevoevadywaniki": {
+  "company": "OMEVO EVA Dywaniki",
+  "website": "https://www.evadywaniki.pl/",
+  "from": "ad"
+ },
+ "farmacjaodserca": {
+  "company": "FARMACJA OD SERCA Sp. z o.o.",
+  "website": null
+ },
+ "dentalbluewawrzyn": {
+  "company": "DENTALBLUE WAWRZYN sp.k.",
+  "website": "https://dentalblue.pl/",
+  "from": "llm"
+ },
+ "whitelist": {
+  "company": "Whitelist LTD",
+  "website": null
+ },
+ "infakt": {
+  "company": "Infakt",
+  "website": "https://www.infakt.pl/",
+  "from": "llm"
+ },
+ "futurekid": {
+  "company": "FUTURE KID sp. z o.o.",
+  "website": "https://futurekid.pl/",
+  "from": "llm"
+ },
+ "seareco": {
+  "company": "SEARECO SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ",
+  "website": "http://seareco.pl/",
+  "from": "llm"
+ },
+ "helikon": {
+  "company": "Helikon Sp. z o.o.",
+  "website": "https://helikon.pl/",
+  "from": "llm"
+ },
+ "supermedia": {
+  "company": "Supermedia Sp. z o.o.",
+  "website": "https://www.supermedia.pl/",
+  "from": "llm"
+ },
+ "mbelix": {
+  "company": "MB ELiX sp. z o.o. sp.k.",
+  "website": null
+ },
+ "wingedit": {
+  "company": "Winged IT",
+  "website": "https://wingedit.pl/",
+  "from": "llm"
+ },
+ "tobea": {
+  "company": "Tobea Sp. z o.o.",
+  "website": "https://www.tobea.pl/",
+  "from": "llm"
+ },
+ "4grants": {
+  "company": "4 GRANTS Sp. z o. o.",
+  "website": "https://4grants.pl/",
+  "from": "llm"
+ },
+ "agencjalions": {
+  "company": "Agencja LIONS",
+  "website": null,
+  "from": "llm"
+ },
+ "socialelitedawidbaginskispolkakomandytowoakcyjna": {
+  "company": "SOCIAL ELITE DAWID BAGIŃSKI SPÓŁKA KOMANDYTOWO – AKCYJNA",
+  "website": null
+ },
+ "wizerunekplus": {
+  "company": "Wizerunek Plus Sp. z o.o.",
+  "website": "https://www.wizerunekplus.pl/",
+  "from": "llm"
+ },
+ "hefestuslugi": {
+  "company": "HEFEST USLUGI sp. z o.o.",
+  "website": null
+ },
+ "geodisroadnetwork": {
+  "company": "GEODIS Road Network sp. z o.o.",
+  "website": null
+ },
+ "archidoc": {
+  "company": "ArchiDoc S.A.",
+  "website": "https://www.archidoc.pl/",
+  "from": "llm"
+ },
+ "delantemarketing": {
+  "company": "Delante Marketing Sp. z o.o.",
+  "website": "https://delante.pl/",
+  "from": "llm"
+ },
+ "leasingteamprofessional": {
+  "company": "LeasingTeam Professional",
+  "website": "https://leasingteam.pl/",
+  "from": "llm"
+ },
+ "vendanaremotehomeoffice": {
+  "company": "Vendana GmbH (Remote/Home office)",
+  "website": null
+ },
+ "e100internationaltrade": {
+  "company": "E100 International Trade Sp. z o.o.",
+  "website": null
+ },
+ "sonarhomeprosta": {
+  "company": "SONARHOME PROSTA SPÓŁKA AKCYJNA",
+  "website": "https://sonarhome.pl/",
+  "from": "llm"
+ },
+ "internetplushttps": {
+  "company": "INTERNET PLUS | HTTPS Sp. z o.o",
+  "website": "https://www.internet-plus.pl/",
+  "from": "llm"
+ },
+ "krajowecentrumszkoleniowe": {
+  "company": "KRAJOWE CENTRUM SZKOLENIOWE sp. z o.o.",
+  "website": null
+ },
+ "property": {
+  "company": "Property Group Sp. z o.o.",
+  "website": null,
+  "from": "llm"
+ },
+ "verestro": {
+  "company": "Verestro S.A.",
+  "website": "https://www.verestro.com/",
+  "from": "llm"
+ },
+ "pwexpert": {
+  "company": "PW-EXPERT",
+  "website": "https://pw-expert.pl/",
+  "from": "llm"
+ },
+ "ergotechnologyservices": {
+  "company": "ERGO Technology & Services",
+  "website": "https://www.ergo.com/en",
+  "from": "llm"
+ },
+ "infomarine": {
+  "company": "Info Marine Sp. z o.o.",
+  "website": null,
+  "from": "llm"
+ },
+ "partydeco": {
+  "company": "PartyDeco sp. z o.o.",
+  "website": "https://partydeco.pl/",
+  "from": "llm"
+ },
+ "bauwatch": {
+  "company": "BAUWATCH POLSKA sp. z o.o.",
+  "website": "https://www.bauwatch.pl/",
+  "from": "llm"
+ },
+ "meteo": {
+  "company": "METEO sp. z o.o.",
+  "website": "https://www.meteo.pl/",
+  "from": "llm"
+ },
+ "zangloryinvestments": {
+  "company": "Zanglory Investments Ltd",
+  "website": null
+ },
+ "conciergefinance": {
+  "company": "CONCIERGE FINANCE",
+  "website": "https://conciergefinance.pl/",
+  "from": "llm"
+ },
+ "3destate": {
+  "company": "3D Estate sp. z o.o.",
+  "website": "https://3destate.pl/",
+  "from": "llm"
+ },
+ "scg": {
+  "company": "SCG Group Sp. z o.o.",
+  "website": null
+ },
+ "rvmv16": {
+  "company": "RVMV 16 sp. z o.o.",
+  "website": "https://rvmv.pl/",
+  "from": "llm"
+ },
+ "transcasheu": {
+  "company": "Transcash.eu S.A.",
+  "website": "https://transcash.eu/",
+  "from": "llm"
+ },
+ "smartconnectloyaledge": {
+  "company": "Smart Connect / Loyal Edge",
+  "website": null,
+  "from": "llm"
+ },
+ "callstack": {
+  "company": "Callstack",
+  "website": "https://www.callstack.com/",
+  "from": "llm"
+ },
+ "kdventuresprosta": {
+  "company": "KD VENTURES PROSTA S.A.",
+  "website": null
+ },
+ "wesub": {
+  "company": "WeSub",
+  "website": "https://wesub.eu/pl/",
+  "from": "llm"
+ },
+ "hello": {
+  "company": "HELLO GROUP Sp. z o.o.",
+  "website": "https://www.hellogroup.pl/",
+  "from": "llm"
+ },
+ "manufacturo": {
+  "company": "Manufacturo",
+  "website": "https://manufacturo.com/",
+  "from": "llm"
+ },
+ "mppmemorypaperprint": {
+  "company": "MPP | Memory Paper Print",
+  "website": null
+ },
+ "osw": {
+  "company": "OSW POLAND sp. z o.o.",
+  "website": null
+ },
+ "uta": {
+  "company": "UTA sp. z o.o.",
+  "website": "https://web.uta.com/pl/",
+  "from": "llm"
+ },
+ "smartconnect": {
+  "company": "Smart Connect",
+  "website": "https://smartconnect.pl/",
+  "from": "llm"
+ },
+ "tomczakstanislawskimarketing": {
+  "company": "Tomczak Stanisławski Marketing",
+  "website": "https://tomczak-stanislawski.pl/",
+  "from": "llm"
+ },
+ "1deakosnik": {
+  "company": "1dea Kośnik Sp. k.",
+  "website": "https://1dea.pl/",
+  "from": "llm"
+ },
+ "remato": {
+  "company": "Remato",
+  "website": "https://remato.com/pl/",
+  "from": "llm"
+ },
+ "nxcargopartner": {
+  "company": "NX Cargo-Partner Poland sp. z o.o.",
+  "website": null
+ },
+ "transitiontechnologiesms": {
+  "company": "Transition Technologies MS",
+  "website": "https://transitiontechnologies.pl/",
+  "from": "llm"
+ },
+ "mediccentreservice": {
+  "company": "Mediccentre Service Sp. z o.o.",
+  "website": "https://mediccentre.pl/",
+  "from": "llm"
+ },
+ "veeamsoftware": {
+  "company": "Veeam Software",
+  "website": "https://www.veeam.com/",
+  "from": "llm"
+ },
+ "flyonthecloud": {
+  "company": "FLY ON THE CLOUD sp. z o.o.",
+  "website": null
+ },
+ "sobierajskajedrzejewski": {
+  "company": "SOBIERAJSKA JĘDRZEJEWSKI sp.k.",
+  "website": null,
+  "from": "llm"
+ },
+ "inso": {
+  "company": "INSO sp. z o.o.",
+  "website": "https://inso.pl/",
+  "from": "llm"
+ },
+ "adoxdevelopment": {
+  "company": "ADOX DEVELOPMENT sp. z o.o.",
+  "website": "https://adox-development.pl/",
+  "from": "llm"
+ },
+ "1843pl": {
+  "company": "1843.pl",
+  "website": "https://1843.pl/",
+  "from": "llm"
+ },
+ "lexen": {
+  "company": "LEXEN sp. z o.o.",
+  "website": "http://lexen.pl/",
+  "from": "llm"
+ },
+ "automee": {
+  "company": "AUTOMEE sp. z o.o.",
+  "website": "https://automee.pl/",
+  "from": "llm"
+ },
+ "unito": {
+  "company": "UNITO sp. z o.o. Sp. k.",
+  "website": "https://unito.pl/",
+  "from": "llm"
+ },
+ "webinterpretsas": {
+  "company": "WebInterpret SAS",
+  "website": "https://webinterpret.com/en",
+  "from": "llm"
+ },
+ "onex": {
+  "company": "Onex Group",
+  "website": "https://onex.group/",
+  "from": "llm"
+ },
+ "creativewavespolkazoo": {
+  "company": "CREATIVE WAVE SPÓŁKA Z O.O.",
+  "website": "https://creativewave.pl/",
+  "from": "llm"
+ },
+ "loyaltypartnerpayback": {
+  "company": "Loyalty Partner Polska Sp. z o.o. (PAYBACK)",
+  "website": "https://www.payback.pl/",
+  "from": "llm"
+ },
+ "codetwohrejterzy": {
+  "company": "CodeTwo - HRejterzy",
+  "website": "https://www.codetwo.pl/",
+  "from": "ad"
+ },
+ "futuriti": {
+  "company": "Futuriti S.A.",
+  "website": "https://futuriti.pl/",
+  "from": "llm"
+ },
+ "aquaforest": {
+  "company": "AQUAFOREST SP. Z O.O. SPÓŁKA KOMANDYTOWA",
+  "website": "https://aquaforest.eu/en/",
+  "from": "llm"
+ },
+ "adtraction": {
+  "company": "Adtraction Poland Sp. z o.o.",
+  "website": "https://adtraction.com/",
+  "from": "llm"
+ },
+ "pluxee": {
+  "company": "Pluxee Polska Sp. z o.o.",
+  "website": "https://www.pluxee.pl/",
+  "from": "llm"
+ },
+ "indoormedia": {
+  "company": "Indoor Media Sp. z o.o.",
+  "website": "https://indoormedia.pl/",
+  "from": "llm"
+ },
+ "swiatoze": {
+  "company": "Świat OZE Sp. z o.o.",
+  "website": "https://swiatoze.pl/",
+  "from": "llm"
+ },
+ "mscloud": {
+  "company": "MScloud Sp. z o.o.",
+  "website": "https://mscloud.pl/",
+  "from": "llm"
+ },
+ "sprawnynajem": {
+  "company": "Sprawny Najem",
+  "website": "https://sprawnynajem.pl/",
+  "from": "ad"
+ },
+ "motobudrex": {
+  "company": "Moto Budrex Sp. z o.o.",
+  "website": "https://motobudrex.pl/",
+  "from": "llm"
+ },
+ "advpl": {
+  "company": "ADV.PL",
+  "website": "https://adv.pl/",
+  "from": "llm"
+ },
+ "itfs": {
+  "company": "ITFS sp. z o.o.",
+  "website": "https://itfs.com/",
+  "from": "llm"
+ },
+ "nmtaskinlogistics": {
+  "company": "NM TASKIN LOGISTICS sp. z o.o.",
+  "website": null
+ },
+ "betasi": {
+  "company": "Betasi Sp. z o.o.",
+  "website": "https://betasi.pl/",
+  "from": "llm"
+ },
+ "joannademianiukjginsurance": {
+  "company": "Joanna Demianiuk J&G Insurance",
+  "website": null
+ },
+ "tradetranscombi": {
+  "company": "TRADE TRANS COMBI sp. z o.o.",
+  "website": null
+ },
+ "mercuryfinancial": {
+  "company": "MERCURY FINANCIAL S.A.",
+  "website": "https://www.mercuryfinancial.com/",
+  "from": "llm"
+ },
+ "linkhouse": {
+  "company": "Linkhouse",
+  "website": "https://linkhouse.pl/",
+  "from": "llm"
+ },
+ "cenergologistyka": {
+  "company": "Cenergo Logistyka sp. z o.o. sp.k",
+  "website": "https://cenergo-logistics.pl/",
+  "from": "llm"
+ },
+ "symfonia": {
+  "company": "Symfonia Sp. z o.o.",
+  "website": "https://symfonia.pl/",
+  "from": "llm"
+ },
+ "systeo": {
+  "company": "SYSTEO SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ",
+  "website": "https://systeo.pl/",
+  "from": "llm"
+ },
+ "kcharles": {
+  "company": "KCharles",
+  "website": null
+ },
+ "greenwayslogistyka": {
+  "company": "GreenWays Logistyka Sp.z o.o. sp.k.",
+  "website": "https://www.greenways.pl/",
+  "from": "llm"
+ },
+ "coig": {
+  "company": "COIG",
+  "website": "https://www.coig.pl/",
+  "from": "llm"
+ },
+ "comcert": {
+  "company": "Comcert SA",
+  "website": "https://www.comcert.pl/",
+  "from": "llm"
+ },
+ "eco3bvpolishbranch": {
+  "company": "ECO3 BV Polish Branch",
+  "website": null
+ },
+ "ppsolutions": {
+  "company": "P&P Solutions Sp. z o.o.",
+  "website": null
+ },
+ "makolab": {
+  "company": "MakoLab SA",
+  "website": "https://makolab.com",
+  "from": "llm"
+ },
+ "solventoir": {
+  "company": "Solventoir Sp. z o.o.",
+  "website": "https://solventoir.pl/",
+  "from": "llm"
+ },
+ "premiumpro": {
+  "company": "PREMIUM PRO GROUP SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ",
+  "website": "https://premiumpro.pl/",
+  "from": "llm"
+ },
+ "bespoke": {
+  "company": "Bespoke sp. z o.o",
+  "website": "http://bespoke.pl/",
+  "from": "llm"
+ },
+ "flowdog": {
+  "company": "FLOWDOG SPÓŁKA AKCYJNA",
+  "website": "https://flowdog.io/",
+  "from": "llm"
+ },
+ "soonlyfinance": {
+  "company": "Soonly Finance",
+  "website": "https://www.soonly.pl/",
+  "from": "llm"
+ },
+ "xaltum": {
+  "company": "XALTUM spółka z ograniczoną odpowiedzialnością spółka komandytowa",
+  "website": "https://xaltum.pl/",
+  "from": "llm"
+ },
+ "yourpathacademy": {
+  "company": "Your Path Academy",
+  "website": "https://www.yourpathacademy.co.uk/",
+  "from": "llm"
+ },
+ "decora": {
+  "company": "Decora S.A.",
+  "website": "https://decora.pl/pl",
+  "from": "llm"
+ },
+ "integritypartners": {
+  "company": "Integrity Partners Sp. z o.o.",
+  "website": "https://integritypartners.pl/",
+  "from": "llm"
+ },
+ "europoolsystem": {
+  "company": "EURO POOL SYSTEM POLAND sp. z o.o.",
+  "website": "https://www.europoolsystem.com/pl/",
+  "from": "llm"
+ },
+ "innsoft": {
+  "company": "Innsoft Sp. z o.o.",
+  "website": "https://innsoft.pl/",
+  "from": "llm"
+ },
+ "futureisnowholding": {
+  "company": "FUTURE IS NOW HOLDING",
+  "website": "https://futureisnow.pl/",
+  "from": "llm"
+ },
+ "pos": {
+  "company": "Pos Group",
+  "website": "https://pos-group.pl/",
+  "from": "llm"
+ },
+ "vinseo": {
+  "company": "Vinseo",
+  "website": "https://vinseo.pl/",
+  "from": "llm"
+ },
+ "advisorprosta": {
+  "company": "\"ADVISOR\" prosta spółka akcyjna",
+  "website": "https://advisor.pl/",
+  "from": "llm"
+ },
+ "kancelariapodatkowaandrzejnowak": {
+  "company": "KANCELARIA PODATKOWA ANDRZEJ NOWAK sp. z o.o.",
+  "website": null
+ },
+ "cofaceservices": {
+  "company": "COFACE POLAND SERVICES Sp. z o.o.",
+  "website": "https://www.coface.com/",
+  "from": "llm"
+ },
+ "tmaster": {
+  "company": "T-Master S.A.",
+  "website": "https://t-master.com/pl",
+  "from": "llm"
+ },
+ "cofacefactoring": {
+  "company": "Coface Poland Factoring Sp. z o.o.",
+  "website": "https://www.coface.pl:443/",
+  "from": "llm"
+ },
+ "kancelariaprawnainkasowec": {
+  "company": "Kancelaria Prawna – Inkaso WEC SA",
+  "website": null
+ },
+ "adsystem": {
+  "company": "Adsystem Sp. z o.o.",
+  "website": "https://adsystem.pl/",
+  "from": "llm"
+ },
+ "ami": {
+  "company": "AMI",
+  "website": "https://ami.com.pl/",
+  "from": "llm"
+ },
+ "apnpromise": {
+  "company": "APN Promise S.A.",
+  "website": null,
+  "from": "llm"
+ },
+ "neobrand": {
+  "company": "NEOBRAND sp. z o.o.",
+  "website": "https://neobrand.pl/",
+  "from": "llm"
+ },
+ "globalhomecontainers": {
+  "company": "GLOBAL HOME CONTAINERS sp. z o.o.",
+  "website": null
+ },
+ "goworkplserwispracy": {
+  "company": "GoWork.pl Serwis Pracy Sp. z o.o.",
+  "website": "https://www.gowork.pl/",
+  "from": "llm"
+ },
+ "t2sservice": {
+  "company": "T2S SERVICE sp. z o.o.",
+  "website": null
+ },
+ "holidaytravelresortsspzoo": {
+  "company": "Holiday Travel Resorts sp, z o.o.",
+  "website": null,
+  "from": "llm"
+ }
+}

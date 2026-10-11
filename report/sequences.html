@@ -1,0 +1,212 @@
+<title>Dealaris Outreach Sequences</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@500;700&family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a working copy desk. Track and language switches on top, the four-message sequence as a vertical timeline of editable cards (day offsets on the rail), then the niche personal lines as an editable table */
+:root {
+  --bg: #f4f6f9; --surface: #ffffff; --line: #dce1e9; --ink: #10151f; --ink-2: #4a5263; --ink-3: #737b8c;
+  --accent: #2a78d6; --accent-soft: #e4eefb; --ok: #1f8a4c; --warn: #a15c00; --warn-bg: #fff1dc;
+  --f-display: "Onest", "Golos Text", system-ui, sans-serif; --f-body: "Golos Text", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f1218; --surface: #171b23; --line: #2a303c; --ink: #f2f4f8; --ink-2: #b9c0cd; --ink-3: #8a92a2;
+  --accent: #3987e5; --accent-soft: #1c2a3f; --ok: #5cc98a; --warn: #f2a54a; --warn-bg: #3a2a14; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0f1218; --surface: #171b23; --line: #2a303c; --ink: #f2f4f8; --ink-2: #b9c0cd; --ink-3: #8a92a2;
+  --accent: #3987e5; --accent-soft: #1c2a3f; --ok: #5cc98a; --warn: #f2a54a; --warn-bg: #3a2a14; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 980px; margin: 0 auto; padding-inline: 20px; padding-block: 32px 64px; display: grid; gap: 32px; }
+header { display: grid; gap: 8px; }
+.eyebrow { font-family: var(--f-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+h1 { font-family: var(--f-display); font-weight: 700; font-size: clamp(26px, 4vw, 36px); line-height: 1.1; margin: 0; text-wrap: balance; }
+h2 { font-family: var(--f-display); font-weight: 700; font-size: 20px; margin: 0; }
+.lede { color: var(--ink-2); margin: 0; max-width: 70ch; }
+.keys { display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--ink-3); font-size: 13px; }
+.keys code { font-family: var(--f-mono); font-size: 12.5px; background: var(--accent-soft); color: var(--ink); padding: 1px 6px; border-radius: 4px; }
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 2; background: var(--bg); padding-block: 10px; display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; border-bottom: 1px solid var(--line); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; background: var(--surface); }
+.seg button { font: 500 13.5px var(--f-body); color: var(--ink-2); background: none; border: 0; padding: 7px 14px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--ink); font-weight: 600; }
+.seg button:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.status { margin-left: auto; font: 12.5px var(--f-mono); color: var(--ink-3); }
+.status.ok { color: var(--ok); }
+.track-note { color: var(--ink-2); font-size: 14px; margin: 0; }
+.timeline { display: grid; gap: 14px; }
+.step { display: grid; grid-template-columns: 5.5em minmax(0, 1fr); gap: 14px; }
+.rail { display: grid; align-content: start; justify-items: end; gap: 2px; padding-top: 12px; }
+.rail b { font: 600 13px var(--f-mono); color: var(--ink); }
+.rail span { font: 12px var(--f-mono); color: var(--ink-3); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: grid; gap: 8px; min-width: 0; }
+.card-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.card-top h3 { margin: 0; font: 600 15px var(--f-body); }
+.card.invite { background: transparent; border-style: dashed; }
+.count { font: 12px var(--f-mono); color: var(--ink-3); }
+.count.over { color: var(--warn); }
+textarea { width: 100%; min-height: 7.5em; resize: vertical; font: 15px/1.55 var(--f-body); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.lines textarea { min-height: 4.6em; font-size: 14px; }
+.table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; min-width: 760px; }
+th { text-align: left; font-weight: 600; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-3); padding: 10px 12px; border-bottom: 1px solid var(--line); }
+td { padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+td.niche { font-weight: 600; width: 12em; }
+.empty { color: var(--ink-3); background: var(--surface); border: 1px dashed var(--line); border-radius: 10px; padding: 18px; margin: 0; }
+.note { color: var(--ink-2); font-size: 14px; background: var(--warn-bg); border-radius: 8px; padding: 10px 14px; margin: 0; }
+@media (max-width: 640px) {
+  .step { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .rail { justify-items: start; grid-auto-flow: column; gap: 10px; padding-top: 0; }
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Dealaris · LinkedIn · ліди з job-бордів (hiring_sales)</div>
+    <h1>Сіквенси аутрічу</h1>
+    <p class="lede">Редагуйте прямо в полях: кожна зміна зберігається сама, і Claude бачить її. Мова для кожного ліда обирається за іменем, мовою headline і локацією: польська, англійська або українська.</p>
+    <div class="keys"><span><code>{first_name}</code> ім'я</span><span><code>{personal_line}</code> рядок під нішу з таблиці нижче</span><span><code>{company}</code> компанія</span><span><code>{note}</code> де познайомились (Web Summit)</span><span><code>{role}</code> посада з їхньої вакансії</span></div>
+  </header>
+
+  <div class="bar">
+    <div class="seg" role="group" aria-label="Кампанія">
+      <button id="cjb" data-camp="job_boards" aria-pressed="true">Job-борди</button>
+      <button id="cws" data-camp="websummit" aria-pressed="false">Web Summit</button>
+    </div>
+    <div class="seg" role="group" aria-label="Трек" id="trackSeg">
+      <button id="tA" data-track="A" aria-pressed="true">A · онлайн-демо</button>
+      <button id="tB" data-track="B" aria-pressed="false">B · телефонні команди</button>
+    </div>
+    <div class="seg" role="group" aria-label="Мова">
+      <button id="lpl" data-lang="pl" aria-pressed="true">PL</button>
+      <button id="len" data-lang="en" aria-pressed="false">EN</button>
+      <button id="luk" data-lang="uk" aria-pressed="false">UA</button>
+    </div>
+    <span class="status" id="status">Підключаюсь…</span>
+  </div>
+  <p class="note" id="note" hidden></p>
+
+  <section>
+    <p class="track-note" id="trackNote"></p>
+    <div class="timeline" id="timeline"><p class="empty">Тут з'являться чотири повідомлення сіквенсу для вибраного треку й мови.</p></div>
+  </section>
+
+  <section class="lines">
+    <h2>Personal lines під ніші</h2>
+    <p class="track-note">Підставляється на місце <code>{personal_line}</code> у першому повідомленні. Порожнє поле означає, що для цієї мови рядок не потрібен.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Ніша</th><th>PL</th><th>EN</th><th>UA</th></tr></thead>
+        <tbody id="lines"><tr><td colspan="4" class="track-note">Завантажую рядки…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const STAGES = [["m1", "Повідомлення 1", "день 0", "щойно прийняли"], ["f1", "Повідомлення 2", "день 3", ""],
+  ["f2", "Повідомлення 3", "день 6", ""], ["f3", "Повідомлення 4", "день 9", "останнє"]];
+const TRACKS = { A: "B2B SaaS, IT, агенції, медіа, e-commerce: команди, що продають на онлайн-демо.",
+  B: "Call-центри, windykacja, фінанси, телеком, логістика: команди, що продають телефоном." };
+let camp = "job_boards", track = "A", lang = "pl", db = null, msgs = {}, lines = {};
+const COLL = { job_boards: "messages", websummit: "messages_websummit" };
+const CAMP_NOTE = { websummit: "Web Summit 2026 (Лісабон, 9–12 листопада), пише Назарій. Один трек; {note} підставляє, де ви познайомились або про що говорили." };
+const timers = {};
+
+function status(text, ok) { $("status").textContent = text; $("status").className = "status" + (ok ? " ok" : ""); }
+
+function counter(el, out, limit) {
+  const n = el.value.replace(/\{personal_line\}/g, "x".repeat(130)).length;
+  out.textContent = limit ? `~${n} / ${limit} символів` : `${el.value.length} символів`;
+  out.classList.toggle("over", !!limit && n > limit);
+}
+
+function save(coll, id, data) {
+  if (!db) return;
+  clearTimeout(timers[id]);
+  status("Зберігаю…");
+  timers[id] = setTimeout(async () => {
+    try { await db.collection(coll).doc(id).update({ ...data, edited_at: new Date().toISOString() }); status("Збережено", true); }
+    catch (e) { status("Не вдалося зберегти, спробуйте ще раз"); }
+  }, 700);
+}
+
+function renderTimeline() {
+  $("trackNote").textContent = CAMP_NOTE[camp] || TRACKS[track];
+  $("trackSeg").hidden = camp !== "job_boards";
+  document.querySelector("section.lines").hidden = camp !== "job_boards";
+  const t = camp === "job_boards" ? track : "A";
+  const rows = STAGES.map(([st, label, day, hint]) => [st, label, day, hint, msgs[`${camp}:${t}-${lang}-${st}`]]);
+  if (!rows.some(r => r[4])) {
+    $("timeline").innerHTML = `<p class="empty">${lang === "uk" && track === "B" ? "Для треку B українська версія не потрібна: серед лідів треку B немає людей з українськими іменами." : "Тут з'являться чотири повідомлення сіквенсу для вибраного треку й мови."}</p>`;
+    return;
+  }
+  const invite = document.createElement("div");
+  invite.className = "step";
+  invite.innerHTML = `<div class="rail"><b>старт</b><span>інвайт</span></div><div class="card invite"><div class="card-top"><h3>Запрошення в контакти</h3><span class="count">без нотатки</span></div><p class="track-note">Інвайт іде без тексту. Сіквенс із чотирьох повідомлень стартує, коли людина прийме запрошення; якщо не прийме, нічого не надсилаємо.</p></div>`;
+  $("timeline").replaceChildren(invite, ...rows.map(([st, label, day, hint, doc]) => {
+    const step = document.createElement("div");
+    step.className = "step";
+    step.innerHTML = `<div class="rail"><b></b><span></span></div><div class="card"><div class="card-top"><h3></h3><span class="count"></span></div><textarea></textarea></div>`;
+    step.querySelector(".rail b").textContent = day;
+    step.querySelector(".rail span").textContent = hint;
+    step.querySelector("h3").textContent = label;
+    const ta = step.querySelector("textarea"), cnt = step.querySelector(".count");
+    const id = `${t}-${lang}-${st}`, key = `${camp}:${id}`, coll = COLL[camp];
+    ta.id = "ta-" + key;
+    ta.setAttribute("aria-label", `${label}, трек ${track}, ${lang}`);
+    ta.value = doc ? doc.text : "";
+    const limit = 0;  // after the invite is accepted there is no 300-character note limit; keep it short anyway
+    counter(ta, cnt, limit);
+    ta.placeholder = "Напишіть текст. Поки поле порожнє, ліди з цією мовою не отримають навіть інвайту.";
+    ta.addEventListener("input", () => { counter(ta, cnt, limit); msgs[key] = { ...(msgs[key] || {}), text: ta.value }; save(coll, id, { text: ta.value }); });
+    return step;
+  }));
+}
+
+function renderLines() {
+  const ids = Object.keys(lines).sort((a, b) => (lines[a].order ?? 99) - (lines[b].order ?? 99));
+  if (!ids.length) { $("lines").innerHTML = `<tr><td colspan="4" class="track-note">Рядків поки немає.</td></tr>`; return; }
+  $("lines").replaceChildren(...ids.map(id => {
+    const tr = document.createElement("tr");
+    const td = document.createElement("td"); td.className = "niche"; td.textContent = lines[id].niche; tr.append(td);
+    for (const L of ["pl", "en", "uk"]) {
+      const cell = document.createElement("td"), ta = document.createElement("textarea");
+      ta.id = `line-${id}-${L}`; ta.value = lines[id][L] || ""; ta.setAttribute("aria-label", `${lines[id].niche}, ${L}`);
+      ta.addEventListener("input", () => { lines[id][L] = ta.value; save("lines", id, { [L]: ta.value }); });
+      cell.append(ta); tr.append(cell);
+    }
+    return tr;
+  }));
+}
+
+for (const b of document.querySelectorAll("[data-camp]")) b.addEventListener("click", () => {
+  camp = b.dataset.camp; document.querySelectorAll("[data-camp]").forEach(x => x.setAttribute("aria-pressed", x === b)); renderTimeline(); });
+for (const b of document.querySelectorAll("[data-track]")) b.addEventListener("click", () => {
+  track = b.dataset.track; document.querySelectorAll("[data-track]").forEach(x => x.setAttribute("aria-pressed", x === b)); renderTimeline(); });
+for (const b of document.querySelectorAll("[data-lang]")) b.addEventListener("click", () => {
+  lang = b.dataset.lang; document.querySelectorAll("[data-lang]").forEach(x => x.setAttribute("aria-pressed", x === b)); renderTimeline(); });
+
+renderTimeline();
+(async () => {
+  db = await claude.use("db");
+  if (!db) { status(""); $("note").hidden = false; $("note").textContent = "Не вдалося підключитися до сховища. Увійдіть у claude.ai й оновіть сторінку, щоб редагувати."; return; }
+  status("Підключено", true);
+  let first = true;
+  for (const [c, coll] of Object.entries(COLL)) db.collection(coll).onSnapshot(s => {
+    for (const d of s.docs) {
+      const active = document.activeElement && document.activeElement.id === `ta-${c}:${d.id}`;
+      if (!active) msgs[`${c}:${d.id}`] = d.data();
+    }
+    if (first || !document.activeElement || !document.activeElement.id.startsWith("ta-")) renderTimeline();
+    first = false;
+  }, () => status("Зв'язок перервався, оновіть сторінку"));
+  db.collection("lines").onSnapshot(s => {
+    const editing = document.activeElement && document.activeElement.id.startsWith("line-");
+    for (const d of s.docs) lines[d.id] = { ...d.data(), ...(editing ? lines[d.id] : {}) };
+    if (!editing) renderLines();
+  });
+})();
+</script>

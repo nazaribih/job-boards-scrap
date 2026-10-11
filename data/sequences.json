@@ -1,0 +1,100 @@
+{
+ "messages": {
+  "A-pl-f1": "{first_name}, puściliśmy przez Dealaris 90 prawdziwych rozmów sprzedażowych. Wyłapał 71% momentów, w których handlowiec zszedł ze skryptu.\n\nJak u was wygląda pierwszy miesiąc nowej osoby na demach?",
+  "B-pl-f2": "Puściliśmy przez Dealaris 90 prawdziwych rozmów i wyłapał 71% momentów, w których konsultant odszedł od skryptu.\n\nPilotaż to tydzień na waszym skrypcie, na kilku nowych osobach. Sprawdzimy to u was?",
+  "B-pl-f3": "{first_name}, nie będę więcej pisać. Jeśli rotacja i wdrażanie nowych osób nie są teraz problemem, w porządku.\n\nJak będą, odezwij się, chętnie pokażę.",
+  "B-uk-m1": "Добрий день, {first_name}! Дякую, що прийняли запрошення. {personal_line}\n\nНаш інструмент слухає дзвінок і просто під час розмови підказує менеджеру відповідь на заперечення. Після дзвінка сам заповнює CRM. Можу показати Вам за 10 хвилин?",
+  "B-en-m1": "Hi {first_name}, thanks for connecting. {personal_line}\n\nOur tool listens to the call and gives the agent an answer to the objection while it's happening. It fills in the CRM afterwards. Can I show you in 10 minutes?",
+  "A-uk-f1": "Добрий день, {first_name}! Ми прогнали через Dealaris 90 реальних продажних дзвінків. Він помітив 71% моментів, коли продавець відійшов від скрипту.\n\nЯк у Вас виглядає перший місяць нового менеджера?",
+  "A-en-f1": "{first_name}, we ran 90 real sales calls through Dealaris. It caught 71% of the moments the rep went off script.\n\nWhat does the first month look like for a new rep on your demos?",
+  "B-en-f2": "We ran 90 real calls through Dealaris and it caught 71% of the moments the agent went off script.\n\nThe pilot is one week on your script with a few new hires. Should we try it with your team?",
+  "B-uk-f2": "Добрий день, {first_name}! Ми прогнали через Dealaris 90 реальних дзвінків, і він помітив 71% моментів, коли менеджер відійшов від скрипту.\n\nПілот триває тиждень, на Вашому скрипті й кількох новачках. Перевіримо у Вас?",
+  "B-pl-m1": "Cześć {first_name}, dzięki za przyjęcie zaproszenia. {personal_line}\n\nNasze narzędzie słucha rozmowy i w trakcie podsuwa konsultantowi odpowiedź na obiekcję. CRM uzupełnia samo po rozmowie. Mogę pokazać w 10 minut?",
+  "B-uk-f3": "Добрий день, {first_name}! Більше не писатиму. Якщо плинність і онбординг нових людей зараз не проблема, все гаразд.\n\nЯкщо стане проблемою, напишіть, із радістю покажу.",
+  "B-en-f3": "{first_name}, I'll stop here. If agent turnover and onboarding aren't a problem right now, fair enough.\n\nIf that changes, drop me a line and I'll show you.",
+  "A-en-f3": "{first_name}, last note from me. If onboarding new reps isn't a priority right now, no problem.\n\nIf it is, reply \"yes\" and I'll send a time.",
+  "A-uk-f3": "Добрий день, {first_name}! Це останнє повідомлення від мене. Якщо онбординг нових продавців зараз не на часі, без питань.\n\nЯкщо на часі, напишіть \"так\", і я запропоную час.",
+  "A-pl-m1": "Cześć {first_name}, dzięki za przyjęcie zaproszenia. {personal_line}\n\nZrobiliśmy narzędzie, które w trakcie rozmowy podpowiada handlowcowi na ekranie, co odpowiedzieć klientowi. Mogę pokazać w 10 minut?",
+  "B-en-f1": "{first_name}, on the phone teams we've talked to, new agents trip over the same 3-4 objections for weeks, even though they're in the script.\n\nIs it like that on your side too?",
+  "B-uk-f1": "Добрий день, {first_name}! У телефонних командах, з якими ми говорили, новачки тижнями спотикаються об ті самі 3-4 заперечення. Хоча вони є в скрипті.\n\nУ Вас теж так?",
+  "A-uk-f2": "Добрий день, {first_name}! Що нас здивувало: найкращі продавці зазвичай не хочуть підказок під час розмови. Найбільше з цього мають новачки.\n\nТому пілот робимо на тиждень, на Вашому скрипті і 2-3 нових людях. Спробуємо у Вас?",
+  "A-en-f2": "Something that surprised us: the best reps usually don't want prompts mid-call. The new ones get the most out of it.\n\nSo we pilot for a week, on your script, with 2-3 new hires. Want to try it?",
+  "A-en-m1": "Hi {first_name}, thanks for connecting. {personal_line}\n\nWe built a tool that shows the rep what to say while the client is still talking. Worth a 10-min look?",
+  "A-uk-m1": "Добрий день, {first_name}! Дякую, що прийняли запрошення. {personal_line}\n\nМи зробили інструмент, який під час дзвінка підказує продавцю на екрані, що відповісти клієнту. Можу показати Вам за 10 хвилин?",
+  "A-pl-f3": "{first_name}, to ostatnia wiadomość ode mnie. Jeśli wdrażanie nowych handlowców nie jest teraz tematem, rozumiem.\n\nA jeśli jest, napisz \"tak\", to podeślę termin.",
+  "B-pl-f1": "{first_name}, w zespołach telefonicznych, z którymi gadaliśmy, nowi konsultanci tygodniami potykają się o te same 3-4 obiekcje. Mimo że mają je w skrypcie.\n\nU was też tak jest?",
+  "A-pl-f2": "Coś, czego się nie spodziewaliśmy: najlepsi handlowcy raczej nie chcą podpowiedzi w trakcie rozmowy. Najwięcej korzystają nowi.\n\nDlatego pilotaż robimy przez tydzień, na waszym skrypcie i 2-3 nowych osobach. Spróbujemy u was?"
+ },
+ "lines": {
+  "callcenter": {
+   "en": "I saw {company} is hiring more agents. At that scale onboarding probably never really stops.",
+   "niche": "Call-центр / BPO",
+   "order": 6,
+   "pl": "Widzę, że {company} rekrutuje kolejnych konsultantów. Przy takiej skali wdrażanie pewnie nigdy się nie kończy.",
+   "uk": ""
+  },
+  "collections": {
+   "en": "I saw you're hiring a {role}. In collections the person on the line is rarely friendly, and new agents have to follow procedure from day one.",
+   "niche": "Windykacja",
+   "order": 7,
+   "pl": "Widzę, że szukacie {role}. W windykacji rozmówca rzadko jest miły, a nowa osoba od pierwszego dnia musi trzymać się procedury.",
+   "uk": ""
+  },
+  "education": {
+   "en": "I saw you're hiring a {role}. Course sales calls often stall on price, and new people don't have an answer for that yet.",
+   "niche": "Освіта / онлайн-курси",
+   "order": 10,
+   "pl": "Widzę, że szukacie {role}. Rozmowa o kursie często rozbija się o cenę, a nowa osoba nie ma jeszcze na to odpowiedzi.",
+   "uk": "Бачу, що Ви шукаєте {role}. Розмова про курс часто впирається в ціну, а новенькі ще не знають, що на це відповісти."
+  },
+  "saas": {
+   "en": "I saw {company} is hiring a {role}. It usually takes a quarter before a new hire runs demos on their own.",
+   "niche": "B2B SaaS",
+   "order": 1,
+   "pl": "Widzę, że {company} szuka {role}. Zanim nowa osoba zacznie sama prowadzić dema, zwykle mija kwartał.",
+   "uk": "Бачу, що {company} шукає {role}. Поки новий менеджер почне сам вести демо, зазвичай минає квартал."
+  },
+  "it": {
+   "en": "I saw you're hiring a {role}. In IT services sales, new people tend to get stuck on the client's technical questions.",
+   "niche": "IT / software house",
+   "order": 2,
+   "pl": "Widzę, że rekrutujecie {role}. W sprzedaży usług IT nowa osoba najczęściej gubi się na technicznych pytaniach klienta.",
+   "uk": ""
+  },
+  "ecom": {
+   "en": "I saw you're hiring a {role}. With a big catalogue, new people take a while to answer clients without looking things up.",
+   "niche": "E-commerce / B2B-торгівля",
+   "order": 5,
+   "pl": "Widzę, że szukacie {role}. Przy dużej ofercie nowa osoba długo uczy się odpowiadać klientom bez sprawdzania.",
+   "uk": ""
+  },
+  "media": {
+   "en": "I saw {company} is hiring a {role}. Selling ads by phone means the same objections over and over, and you need to know them by heart.",
+   "niche": "Медіа / івенти",
+   "order": 4,
+   "pl": "Widzę, że {company} szuka {role}. Przy sprzedaży reklamy przez telefon wracają te same obiekcje, tylko trzeba je znać na pamięć.",
+   "uk": ""
+  },
+  "logistics": {
+   "en": "I saw you're hiring a {role}. In freight, clients want a quote and a reason right away, and new people need time to get there.",
+   "niche": "Логістика / транспорт",
+   "order": 9,
+   "pl": "Widzę, że rekrutujecie {role}. W spedycji klient chce wyceny i argumentów od razu, a nowa osoba potrzebuje na to czasu.",
+   "uk": ""
+  },
+  "agency": {
+   "en": "I saw you're looking for a {role}. At an agency every call is a pitch, and new people usually learn it on live leads.",
+   "niche": "Маркетинг / lead-gen",
+   "order": 3,
+   "pl": "Widzę, że szukacie {role}. W agencji każda rozmowa to pitch, a nowa osoba uczy się go zwykle na żywych leadach.",
+   "uk": ""
+  },
+  "finance": {
+   "en": "I saw you're hiring a {role}. With financial products, a new person has to sell without saying more than they're allowed to.",
+   "niche": "Фінанси / страхування",
+   "order": 8,
+   "pl": "Widzę, że rekrutujecie {role}. Przy produktach finansowych nowa osoba musi sprzedawać i nie powiedzieć przy tym za dużo.",
+   "uk": ""
+  }
+ }
+}
