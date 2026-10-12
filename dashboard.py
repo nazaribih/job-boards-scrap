@@ -93,6 +93,7 @@ def data():
         nxt = min((S[l["provider_id"]]["next_at"] for l in mine if S.get(l["provider_id"], {}).get("next_at")), default=None)
         accounts[a] = {"leads": len(mine), "viewed": n("viewed"), "invited": n("invited"), "connected": n("connected"),
                        "messaged": n("m1"), "replied": n("replied"), "paused_until": paused, "last_error": ac.get("last_error"),
+                       "last_sync": ac.get("last_sync"), "next_sync": ac.get("next_sync"),
                        "today": {"view": [used.get("view", 0), 15], "invite": [used.get("invite", 0), campaigns.invite_cap(a, ac)],
                                  "message": [used.get("message", 0), 25]}, "next_at": nxt,
                        "unipile_status": ((guards.get(a) or {}).get("status") or {}).get("sources"),
@@ -340,7 +341,8 @@ function overview(){camps();
   return `<div class="acct"><div class="ah"><b>${NAME[k]}</b>${st}</div>
   <div class="stats"><div><b>${a.leads}</b><span>лідів</span></div><div><b>${a.invited}</b><span>інвайтів · ${pct(a.connected,a.invited)} прийняли</span></div><div><b>${a.replied}</b><span>відповідей з ${a.messaged}</span></div></div>
   <div style="display:grid;gap:6px"><span class="m">Сьогодні</span>${meter("Перегляди",a.today.view)}${meter("Інвайти",a.today.invite)}${meter("Повідомлення",a.today.message)}</div>
-  <span class="m">${a.last_error?esc(a.last_error):a.next_at?"Наступна запланована дія: "+when(a.next_at):"Наступна дія: за чергою в робочі години"}${a.unipile_status?` · статус в Unipile: ${esc(a.unipile_status.join(", "))}`:""}</span></div>`}).join("");
+  <span class="m">${a.last_error?esc(a.last_error):a.next_at?"Наступна запланована дія: "+when(a.next_at):"Наступна дія: за чергою в робочі години"}${a.unipile_status?` · статус в Unipile: ${esc(a.unipile_status.join(", "))}`:""}</span>
+  <span class="m">Прийняті інвайти й відповіді: перевірено ${a.last_sync?when(a.last_sync):"ще ні"}${a.next_sync&&!a.paused_until?", наступна перевірка "+when(a.next_sync):""}</span></div>`}).join("");
  bars($("funnel"),fun.length?fun:D.funnel);
  const cnt=k=>v=>fl.filter(l=>l[k]===v).length;const TK=((D.campaigns||[]).find(c=>c.id===F().k)||{}).tracks;bars($("mix"),[[TK?"A · "+TK.A:"Трек A · онлайн-демо",cnt("track")("A")],[TK?"B · "+TK.B:"Трек B · телефон",cnt("track")("B")],["Польською",cnt("lang")("pl")],["Англійською",cnt("lang")("en")],["Українською",cnt("lang")("uk")]]);
  const per=F().p,days=[];for(let i=0;i<Math.max(per,1);i++){const d=new Date(Date.now()-i*864e5);days.push(d.toLocaleDateString("sv-SE",{timeZone:"Europe/Warsaw"}))}

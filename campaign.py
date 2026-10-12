@@ -768,6 +768,7 @@ class Campaign:
                     self.reply_alert(account, l)
                     self.event(account, "replied", l)
                 time.sleep(random.uniform(2, 6))
+        self.acct(account)["last_sync"] = now().isoformat()
         self.persist()
 
     def pick(self, account, leads):
@@ -815,8 +816,21 @@ class Campaign:
                        if not {l["provider_id"], l["url"], l["url"].rstrip("/")} & ex),
                       key=lambda l: (-pri.get(l["campaign"], 0), -l["score"]))
 
+    def plan_sync(self, account, seconds):
+        """Note when this account next reads acceptances and replies (07:00 if that falls at night), for the dashboard."""
+        t = now() + dt.timedelta(seconds=seconds)
+        if t.hour >= 23:
+            t += dt.timedelta(days=1)
+        if not 7 <= t.hour < 23:
+            t = t.replace(hour=7, minute=0)
+        with LOCK:
+            self.acct(account)["next_sync"] = t.isoformat()
+        self.persist()
+
     def work(self, account):
-        nap(random.uniform(0, 15 * 60))
+        start = random.uniform(0, 15 * 60)
+        self.plan_sync(account, start)
+        nap(start)
         last_sync, gap = 0, 0
         while True:
             t = now()
@@ -828,6 +842,7 @@ class Campaign:
             if (7, 0) <= (t.hour, t.minute) < (23, 0) and time.time() - last_sync > gap and not guard.paused_until(account):
                 self.sync(account, self.leads())
                 last_sync, gap = time.time(), random.uniform(20, 40) * 60 if in_hours(t) else random.uniform(50, 80) * 60
+                self.plan_sync(account, gap)
             if not in_hours(t):
                 nap(15 * 60)
                 continue
