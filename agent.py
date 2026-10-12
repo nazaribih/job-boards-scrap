@@ -6,9 +6,8 @@ Each pass it decides, and writes down why, in data/agent_log.json:
 - every 2 days: scrape the job boards again (rocketjobs, nofluffjobs, praca.pl, aplikuj.pl; pracuj.pl only works
   from a home IP, so pracuj_push.py on Nazarii's Mac sends it to /api/offers and the next pass processes it), judge
   the new companies against the pitch deck, estimate headcount, classify the niche, find their websites and the
-  decision makers named there, look each one up with a web search (headcount, LinkedIn page, decision makers with
-  their LinkedIn links: websearch.py), and add them to the company pool; the LinkedIn queue only searches what the
-  web search couldn't answer;
+  decision makers named there, and add them to the company pool. The web search (websearch.py) and the LinkedIn
+  search queue are run by hand, on request; what they found earlier stays in use;
 - every pass: give newly found decision makers a language, so they can enter the campaign;
 - when the LinkedIn queue is close to running out of companies to search, ask the model for new LinkedIn people
   searches (title + sector, in Polish), steered by which niches have been accepting and replying so far;
@@ -102,7 +101,7 @@ def scrape(boards=True):
             return note("Збір job-бордів не вдався", out[-200:])
     failed = []
     for step in (["judge.py"], ["judge.py", "--size"], ["run.py", "--no-scrape", "--max-lookups", "0"], ["niche.py"],
-                 ["find_sites.py"], ["site_people.py"], ["websearch.py", "--tiers", "AB", "--limit", "100"], ["refresh.py"], ["lang.py"], ["pool.py", "build"],
+                 ["find_sites.py"], ["site_people.py"], ["refresh.py"], ["lang.py"], ["pool.py", "build"],
                  ["pool.py", "judge"]):
         code, out = sh(*step)
         if code:

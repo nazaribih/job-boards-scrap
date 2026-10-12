@@ -155,6 +155,10 @@ def run_logged(args, source, timeout=None):
 
 
 def queue_loop():
+    """LinkedIn searches (linkedin_queue.py). Off unless QUEUE_ENABLED=true: they run on request."""
+    if os.environ.get("QUEUE_ENABLED", "").lower() != "true":
+        log("LinkedIn search queue off (set QUEUE_ENABLED=true, or run linkedin_queue.py by hand)")
+        return
     cap = os.environ.get("QUEUE_CAP", "15")
     while True:
         code = run_logged(["linkedin_queue.py", "--cap", cap], "queue")
