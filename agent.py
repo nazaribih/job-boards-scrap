@@ -102,7 +102,7 @@ def scrape(boards=True):
             return note("Збір job-бордів не вдався", out[-200:])
     failed = []
     for step in (["judge.py"], ["judge.py", "--size"], ["run.py", "--no-scrape", "--max-lookups", "0"], ["niche.py"],
-                 ["find_sites.py"], ["site_people.py"], ["websearch.py"], ["refresh.py"], ["lang.py"], ["pool.py", "build"],
+                 ["find_sites.py"], ["site_people.py"], ["websearch.py", "--tiers", "AB", "--limit", "100"], ["refresh.py"], ["lang.py"], ["pool.py", "build"],
                  ["pool.py", "judge"]):
         code, out = sh(*step)
         if code:

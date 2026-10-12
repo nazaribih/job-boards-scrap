@@ -1,6 +1,6 @@
 """Company facts and decision makers from an OpenAI web search, so LinkedIn is only the fallback.
 
-  python websearch.py [--tiers ABC] [--limit 0] [--workers 4]
+  python websearch.py [--tiers AB] [--limit 0] [--workers 4]   # the agent runs it with --limit 100 per pass
 
 For each qualified job-board company not looked up yet: its website, LinkedIn company page, headcount and the people
 who run it or its sales (CEO / prezes / owner / sales director), with their LinkedIn profile links. The model
@@ -108,7 +108,7 @@ def people_for(k, cache=None):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--tiers", default="ABC")
+    ap.add_argument("--tiers", default="AB", help="the campaign only takes people from A and B companies")
     ap.add_argument("--limit", type=int, default=0, help="at most this many companies this run (0: all)")
     ap.add_argument("--workers", type=int, default=4)
     args = ap.parse_args()
