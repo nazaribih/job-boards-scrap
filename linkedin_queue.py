@@ -30,7 +30,7 @@ import requests
 
 import guard
 import people
-from jbscrap.score import company_key
+from jbscrap.score import company_key, fold
 import store
 from jbscrap.unipile import CACHE as LI_CACHE, _pick, _query
 
@@ -143,17 +143,24 @@ def build_tasks():
     site = json.loads(SITE.read_text()) if SITE.exists() else {}
     cos = [c for c in csv.DictReader(open(DATA / "companies.csv", encoding="utf-8")) if c["status"] == "qualified"]
     cos.sort(key=lambda c: -float(c["company_score"] or 0))
+    # LinkedIn is the fallback for the web search (websearch.py): skip what it already answered
+    import websearch
+    ws = websearch.load()
+    ws_found = {k for k in ws if websearch.people_for(k, ws)}
+    ws_names = {(k, fold(p["name"]).strip()) for k in ws for p in websearch.people_for(k, ws)}
     tasks = []
     for c in cos:  # 1. decision makers at A+B companies with a LinkedIn page
         k = company_key(c["company"])
         cid = ((li.get(k) or {}).get("profile") or {}).get("id")
+        if k in ws_found:
+            continue
         if c["tier"] in "AB" and cid and not people.STAFFING_INDUSTRY.search(c["li_industry"]):
             for term in people.TERMS[:2]:
                 if term not in (pc.get(k) or {}).get("hits", {}):
                     tasks.append(("people", k, {"company": c["company"], "cid": cid, "term": term}))
     for k, e in site.items():  # 2. LinkedIn profiles for people named on company websites
         for p in e.get("people", []):
-            if "li" not in p:
+            if "li" not in p and (k, fold(p["name"]).strip()) not in ws_names:
                 tasks.append(("match", k, {"company": e["company"], "name": p["name"]}))
     # 3. pool companies (local lists + new job-board finds) the judge called a fit, best first: find the LinkedIn
     #    page and headcount, then the decision makers, skipping anyone LinkedIn shows outside 10-200 people
@@ -174,7 +181,7 @@ def build_tasks():
                     tasks.append(("people", k, {"company": c["name"], "cid": prof["id"], "term": term}))
     for c in cos:  # 4. headcount for qualified job-board companies LinkedIn never looked up
         k = company_key(c["company"])
-        if c["tier"] in "ABC" and k not in li:
+        if c["tier"] in "ABC" and k not in li and not (ws.get(k) or {}).get("employees"):
             tasks.append(("company", k, {"company": c["company"]}))
     # 5. searches the research agent wrote when everything above runs dry (see agent.py)
     for q in json.loads(QUERIES.read_text()) if QUERIES.exists() else []:

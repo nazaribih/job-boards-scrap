@@ -187,6 +187,8 @@ def receive_offers(b):
     if len(offers) < 0.3 * before:  # a run cut short by Cloudflare shouldn't wipe the board's offers
         raise ValueError(f"лише {len(offers)} вакансій проти {before} минулого разу: схоже, збір обірвався, не замінюю")
     raw.write_text(json.dumps([o for o in old if o["source"] != source] + offers, ensure_ascii=False))
+    import run
+    run.mark_seen(offers, dt.date.today().isoformat())
     st = store.path("agent_state.json")
     store.write_json(st, {**store.read_json(st, {}), "pushed_offers": dt.datetime.now(dt.timezone.utc).isoformat()})
     b["offers"] = len(offers)

@@ -131,6 +131,8 @@ def site_people(k):
 
 
 def write_csv(companies, skipped, cache, per_company):
+    import websearch
+    wcache = websearch.load()
     rows = []
     for c in companies:
         e = cache.get(company_key(c["company"]))
@@ -147,10 +149,16 @@ def write_csv(companies, skipped, cache, per_company):
             if not mention and re.search(r"\bat\b|\bw\b|@|\bdla\b", fold(head)):
                 continue
             people.setdefault(i["id"], (role, mention, dict(i, source="linkedin")))
+        # decision makers a web search found with their LinkedIn link (websearch.py), by folded name
+        ws = {fold(p["name"]).strip(): p for p in websearch.people_for(company_key(c["company"]), wcache) if role_of(p["title"])}
+        slugs = {websearch.clean_li(i.get("public_profile_url")).rsplit("/", 1)[-1].lower() for _, _, i in people.values()}
         for sp in site_people(company_key(c["company"])):  # named on the company's own website
             li = sp.get("li") or {}
             if li.get("id") in people:
                 continue
+            w = ws.get(fold(sp["name"]).strip())
+            if w and not li.get("public_profile_url"):  # the search found the LinkedIn profile LinkedIn wasn't asked for
+                li = {"public_profile_url": w["linkedin_url"], "id": None, "source": "websearch"}
             label = sp["role"]
             rank = next((r for r, l, _ in ROLES if l == label), 5)
             people.setdefault(li.get("id") or "site:" + sp["name"], ((rank, label), True, {
@@ -158,6 +166,14 @@ def write_csv(companies, skipped, cache, per_company):
                 "profile_url": li.get("profile_url"), "network_distance": li.get("network_distance"),
                 "id": li.get("id"), "source": "website", "source_url": sp["source_url"], "email": sp.get("email", ""),
                 "phone": sp.get("phone", "")}))
+        for name, w in ws.items():
+            slug = w["linkedin_url"].rsplit("/", 1)[-1].lower()
+            if slug in slugs or any(fold(i.get("name") or "").strip() == name for _, _, i in people.values()):
+                continue  # LinkedIn or the website already gave this person
+            slugs.add(slug)
+            people.setdefault("ws:" + slug, (role_of(w["title"]), True, {
+                "name": w["name"], "headline": w["title"], "public_profile_url": w["linkedin_url"], "profile_url": "",
+                "network_distance": None, "id": None, "source": "websearch", "source_url": w["source_url"]}))
         best = sorted(people.values(), key=lambda x: (not x[1], x[0][0]))[:per_company]
         base = {"company": c["company"], "tier": c["tier"], "company_score": c["company_score"], "li_headcount": c["li_headcount"],
                 "company_linkedin": c["li_url"], "top_vacancy": c["top_vacancy"], "top_vacancy_url": c["top_vacancy_url"],

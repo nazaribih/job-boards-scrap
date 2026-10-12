@@ -6,7 +6,9 @@
 """
 import argparse
 import csv
+import datetime as dt
 import json
+import re
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -16,6 +18,8 @@ from jbscrap.unipile import CACHE, Unipile, enrich
 
 DATA = Path(__file__).resolve().parent / "data"
 JUDGE = DATA / "judge_cache.json"
+SEEN = DATA / "vacancy_seen.json"
+ISO = re.compile(r"\d{4}-\d{2}-\d{2}")
 
 KEYWORDS = ["telesprzedaz", "telemarketing", "telemarketer", "konsultant telefoniczny", "call center", "contact center",
             "sprzedaz telefoniczna", "specjalista ds sprzedazy telefonicznej", "infolinia", "inside sales", "sdr", "bdr",
@@ -39,6 +43,32 @@ SOURCES = {
     "pracuj": lambda: __import__("jbscrap.pracuj", fromlist=["pracuj_pl"]).pracuj_pl(KEYWORDS, max_pages=10),
 }
 DEFAULT_SOURCES = ["rocketjobs", "nofluffjobs", "praca", "aplikuj"]
+
+
+def mark_seen(offers, day, raw=None):
+    """data/vacancy_seen.json: per company, the first and the last day its sales ads were on a board. With a day, the
+    offers were just scraped (or pushed from the Mac). Without one, companies missing from the file are backfilled:
+    first = earliest publication date, last = the day the raw offers were saved (pracuj.pl: its newest ad)."""
+    seen = json.loads(SEEN.read_text()) if SEEN.exists() else {}
+    saved = dt.date.fromtimestamp(raw.stat().st_mtime).isoformat() if raw and raw.exists() else dt.date.today().isoformat()
+    newest = {}
+    for o in offers:
+        if ISO.match(o.get("published") or ""):
+            newest[o["source"]] = max(newest.get(o["source"], ""), o["published"][:10])
+    for o in offers:
+        if not o.get("company") or score_vacancy(o)[1] <= 0:
+            continue
+        k = company_key(o["company"])
+        pub = o["published"][:10] if ISO.match(o.get("published") or "") else ""
+        e = seen.get(k)
+        if day:
+            seen[k] = {"first": min(x for x in ((e or {}).get("first"), pub or day, day) if x), "last": day}
+        elif not e:
+            last = newest.get(o["source"], saved) if o["source"] == "pracuj.pl" else saved
+            seen[k] = {"first": min(pub or last, last), "last": last}
+        elif pub and pub < e["first"]:
+            e["first"] = pub
+    SEEN.write_text(json.dumps(seen))
 
 
 def company_score(c):
@@ -84,13 +114,16 @@ def main():
     raw = DATA / "raw_offers.json"
     if args.no_scrape:
         offers = json.loads(raw.read_text())
+        mark_seen(offers, None, raw)
     else:
         names = list(SOURCES) if args.sources == "all" else [n.strip() for n in args.sources.split(",") if n.strip()]
         offers = scrape(names)
+        mark_seen(offers, dt.date.today().isoformat())
         if args.merge and raw.exists():
             fresh = {o["source"] for o in offers}
             offers += [o for o in json.loads(raw.read_text()) if o["source"] not in fresh]
         raw.write_text(json.dumps(offers, ensure_ascii=False))
+    seen_on = json.loads(SEEN.read_text()) if SEEN.exists() else {}
 
     # dedupe vacancies (same company + title + city across boards / keyword queries)
     seen, vacs = set(), []
@@ -129,7 +162,8 @@ def main():
                               top_vacancy=max(vs, key=lambda v: v["role_score"])["title"],
                               top_vacancy_url=max(vs, key=lambda v: v["role_score"])["url"],
                               li_match="", li_name="", li_url="", li_headcount="", li_headcount_range="",
-                              li_industry="", li_website=""))
+                              li_industry="", li_website="", vacancy_first_seen=(seen_on.get(key) or {}).get("first", ""),
+                              vacancy_last_seen=(seen_on.get(key) or {}).get("last", "")))
 
     if Unipile.available() or CACHE.exists():
         todo = sorted([c for c in companies if c["status"] == "qualified"], key=lambda c: -c["fit_score"])
@@ -149,6 +183,24 @@ def main():
     else:
         print("[unipile] Unipile env not set — headcount filter uses cache / board data only")
 
+    # headcount from the web search (websearch.py) for companies LinkedIn hasn't counted: LinkedIn is the fallback
+    import websearch
+    ws = websearch.load()
+    for c in companies:
+        e = ws.get(c["company_key"]) or {}
+        c["ws_headcount"] = e.get("employees") or ""
+        c["ws_headcount_basis"] = e.get("employees_basis", "") if c["ws_headcount"] else ""
+        if not c["li_url"] and e.get("linkedin_company_url"):
+            c["li_url"] = e["linkedin_company_url"]
+        if not c["website"] and e.get("website"):
+            c["website"] = e["website"]
+        if c["li_headcount"] or c["li_headcount_range"] or not c["ws_headcount"] or c["status"] != "qualified":
+            continue
+        if c["ws_headcount"] > MAX_HEAD:
+            c["status"], c["disqualify_reason"] = "disqualified", f"enterprise ({c['ws_headcount']} per web search)"
+        elif c["ws_headcount"] < MIN_HEAD:
+            c["status"], c["disqualify_reason"] = "disqualified", f"too small ({c['ws_headcount']} per web search)"
+
     # LLM-as-a-judge verdicts from judge.py (pitch-deck fit, sells by phone / online)
     judged = json.loads(JUDGE.read_text()) if JUDGE.exists() else {}
     for c in companies:
@@ -159,12 +211,12 @@ def main():
             c["status"], c["disqualify_reason"] = "disqualified", "LLM judge: sales not remote / outside ICP"
         # headcount LinkedIn couldn't verify, estimated by the judge from the website and the ads
         sz = j.get("size") or {}
-        c["llm_size"] = sz.get("headcount_band", "") if not (c["li_headcount"] or c["li_headcount_range"]) else ""
+        c["llm_size"] = sz.get("headcount_band", "") if not (c["li_headcount"] or c["li_headcount_range"] or c["ws_headcount"]) else ""
         if c["llm_size"] in ("1-9", "201-500", "500+") and sz.get("confidence") != "low" and c["status"] == "qualified":
             c["status"], c["disqualify_reason"] = "disqualified", f"LLM size estimate: {c['llm_size']} employees"
 
     for c in companies:
-        c["headcount_verified"] = c["li_headcount"] != "" or c["li_headcount_range"] != ""
+        c["headcount_verified"] = c["li_headcount"] != "" or c["li_headcount_range"] != "" or c["ws_headcount"] != ""
         c["company_score"] = company_score(c)
         f = c["company_score"]
         c["tier"] = "A" if f >= 80 else "B" if f >= 65 else "C" if f >= 50 else "D"
@@ -179,9 +231,9 @@ def main():
     vac_cols = ["company", "company_status", "company_fit_score", "title", "role_class", "role_score", "signals", "city",
                 "workplace", "salary", "seniority", "source", "url", "published", "description"]
     co_cols = ["company", "tier", "company_score", "status", "disqualify_reason", "fit_score", "sales_vacancies", "phone_roles", "hiring_sales_leader",
-               "role_classes", "top_vacancy", "top_vacancy_url", "cities", "sources", "website", "board_company_size",
+               "role_classes", "top_vacancy", "top_vacancy_url", "vacancy_first_seen", "vacancy_last_seen", "cities", "sources", "website", "board_company_size",
                "headcount_verified", "li_headcount",
-               "li_headcount_range", "li_url", "li_industry", "li_website", "li_match",
+               "li_headcount_range", "ws_headcount", "ws_headcount_basis", "li_url", "li_industry", "li_website", "li_match",
                "llm_verdict", "llm_fit", "llm_channel", "llm_remote_share", "llm_segment", "llm_reason", "llm_size"]
     for path, rows, cols in [(DATA / "vacancies.csv", [v for v in vacs if v["role_score"] > 0], vac_cols),
                              (DATA / "companies.csv", companies, co_cols)]:

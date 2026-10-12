@@ -26,6 +26,7 @@ import sys
 import threading
 import time
 from pathlib import Path
+from urllib.parse import unquote
 from zoneinfo import ZoneInfo
 
 import requests
@@ -159,6 +160,43 @@ def vocative(name):
     return cache[name]["name"].strip() if cache[name].get("ukrainian") else ""
 
 
+STILL_HIRING_DAYS = 4  # boards are scraped every 2 days: an ad not seen for longer has come down
+PAST_SCHEMA = {"type": "object", "additionalProperties": False, "required": ["line"], "properties": {"line": {"type": "string"}}}
+PAST_SYSTEM = """Rewrite one sentence from a short LinkedIn message so the hiring it mentions is in the past: the company
+was recruiting recently, the job ad is no longer up. Keep the opening verb of seeing in the present and put only the
+hiring verb in the past, adding "recently". Keep the same subject and grammatical person as the original: pl
+"Widzę, że szukacie X" -> "Widzę, że niedawno szukaliście X"; "Widzę, że Firma szuka X" -> "Widzę, że Firma
+niedawno szukała X" (gender agreeing with the company name); uk "Бачу, що Ви шукаєте" -> "Бачу, що Ви нещодавно
+шукали"; en "I saw you're hiring" -> "I saw you were recently hiring". Keep the rest of the sentence word for word,
+the same language, the same form of address. No dashes as punctuation."""
+
+
+def hiring_tense(lead, plines, key):
+    """Job-board leads say "you're hiring" while the ad is up and "you were recently hiring" once it's gone, from the
+    day the boards last showed it. The present-tense line is kept, so it comes back if the company posts again."""
+    last = lead.get("vacancy_last_seen")
+    if not last or lead.get("source") in ("seed", "icp"):
+        return
+    now_line = lead.setdefault("personal_line_now", lead["personal_line"])
+    lead["hiring_now"] = (dt.date.today() - dt.date.fromisoformat(last)).days <= STILL_HIRING_DAYS
+    if lead["hiring_now"]:
+        lead["personal_line"] = now_line
+        return
+    ck = f"past2|{now_line}"
+    if ck not in plines and key:
+        try:
+            plines[ck] = ask_past(key, now_line)
+        except Exception as e:
+            print(f"[prepare] past tense for {lead['company']!r}: {str(e)[:100]}")
+    if plines.get(ck):
+        lead["personal_line"] = plines[ck]["line"]
+
+
+def ask_past(key, line):
+    from judge import ask
+    return ask(key, line, PAST_SYSTEM, PAST_SCHEMA)
+
+
 def outreach_helper_people():
     """(public_identifier, provider_id) of everyone the outreach-helper app has, except people its own filter turned
     down: read live from its tables in the same Postgres, else from the copy exported earlier."""
@@ -184,6 +222,8 @@ def prepare():
     langs = load(store.path("lang_cache.json"), {})
     niches = load(DATA / "niche_cache.json", {})
     plines = load(store.path("pline_cache.json"), {})
+    import websearch
+    wcache = websearch.load()
     cos = {c["company"]: c for c in csv.DictReader(open(DATA / "companies.csv", encoding="utf-8"))}
     top_vac = {}
     for v in sorted(csv.DictReader(open(DATA / "vacancies.csv", encoding="utf-8")), key=lambda v: -float(v["role_score"] or 0)):
@@ -200,9 +240,16 @@ def prepare():
             li = p.get("li") or {}
             if li and (li.get("public_profile_url") or li.get("profile_url") or "").split("?")[0] == url:
                 return li
+        pub = url.rstrip("/").rsplit("/", 1)[-1]
+        if any(websearch.clean_li(p["linkedin_url"]).lower() == websearch.clean_li(url).lower()
+               for p in websearch.people_for(k, wcache)):
+            # found by the web search only: the id comes from the profile view, which also checks it's the right person
+            return {"id": f"url:{pub}", "network_distance": None, "verify": True}
         return None
 
     old = {l["provider_id"]: l for l in campaigns.job_leads()}
+    # a person keeps the id they entered with: one found by URL first and by LinkedIn search later stays the same lead
+    old_pid = {unquote(l["public_identifier"]).lower(): l["provider_id"] for l in old.values()}
     exclude = campaigns.excluded()  # provider ids or LinkedIn URLs taken out by hand
     # people the outreach-helper has (queued, invited, messaged, waiting for review...): one sender per person
     for pub, pid in outreach_helper_people():
@@ -218,7 +265,7 @@ def prepare():
         lang = (langs.get(r["name"]) or {}).get("lang")
         if not h or not h.get("id") or not lang:
             continue
-        pub = r["person_linkedin"].rstrip("/").rsplit("/", 1)[-1].lower()
+        pub = unquote(r["person_linkedin"].rstrip("/").rsplit("/", 1)[-1]).lower()
         if pub in exclude:
             continue
         if h["id"] in seen or pub in seen:
@@ -242,20 +289,29 @@ def prepare():
         if not pl:
             continue
         first = r["name"].split()[0].strip(",.")
-        prev = old.get(h["id"], {})
-        leads.append({"provider_id": h["id"], "name": r["name"], "first_name": first.capitalize() if first.isupper() else first,
+        pid = old_pid.get(pub, h["id"])
+        prev = old.get(pid, {})
+        leads.append({"provider_id": pid, "name": r["name"], "first_name": first.capitalize() if first.isupper() else first,
                       "public_identifier": r["person_linkedin"].rstrip("/").rsplit("/", 1)[-1], "url": r["person_linkedin"],
                       "role": r["role"], "headline": r["headline"], "company": r["company"], "company_short": pl["company"],
                       "company_key": company_key(r["company"]), "tier": r["tier"], "score": float(r["lead_score"] or 0),
                       "niche": niche, "track": track, "lang": lang, "personal_line": pl["line"],
-                      "distance": h.get("network_distance"), "owner": prev.get("owner")})
+                      "distance": h.get("network_distance"), "owner": prev.get("owner"), "found_via": r["source"] or "linkedin",
+                      "vacancy": role, "vacancy_first_seen": c.get("vacancy_first_seen", ""), "vacancy_last_seen": c.get("vacancy_last_seen", ""),
+                      **({"verify": True} if h.get("verify") else {})})
     leads += extra_leads({l["provider_id"] for l in leads} | {l["public_identifier"] for l in leads}, exclude, plines, key, old)
     # people already in the campaign stay in it when their company drops off the boards (its ads expired) or out of a
     # tier: someone mid-sequence must get the rest of it, and a hiring company from last month is still a prospect
-    have = {l["provider_id"] for l in leads} | {l["public_identifier"].lower() for l in leads}
-    kept = [l for l in old.values() if l["provider_id"] not in have and l["public_identifier"].lower() not in have
-            and not {l["provider_id"], l["url"], l["url"].rstrip("/"), l["public_identifier"].lower()} & exclude]
+    have = {l["provider_id"] for l in leads} | {unquote(l["public_identifier"]).lower() for l in leads}
+    kept = [l for l in old.values() if l["provider_id"] not in have and unquote(l["public_identifier"]).lower() not in have
+            and not {l["provider_id"], l["url"], l["url"].rstrip("/"), unquote(l["public_identifier"]).lower()} & exclude]
+    seen = load(DATA / "vacancy_seen.json", {})
+    for l in kept:  # their company is off the boards now: the dates still tell when it was hiring
+        e = seen.get(l.get("company_key")) or {}
+        l.update(vacancy_first_seen=e.get("first", l.get("vacancy_first_seen", "")), vacancy_last_seen=e.get("last", l.get("vacancy_last_seen", "")))
     leads += kept
+    for l in leads:
+        hiring_tense(l, plines, key)
     save(store.path("pline_cache.json"), plines)
 
     # owners: keep earlier assignments; Ukrainian-language leads to Nazarii; the rest balanced in score order
@@ -409,6 +465,21 @@ class Api:
         except ValueError:
             body = {}
         return r.status_code, body
+
+
+def right_person(lead, profile):
+    """For a profile reached by a link the web search found: the name must match, and a headline naming an employer
+    must name this company. Returns why not, or "" when it fits."""
+    from jbscrap.score import fold
+    from jbscrap.unipile import _tokens
+    name = re.findall(r"[a-z]+", fold(f"{profile.get('first_name', '')} {profile.get('last_name', '')}"))
+    want = re.findall(r"[a-z]+", fold(lead["name"]))
+    if not want or not name or want[0] != name[0] or want[-1] not in name:
+        return "web search link: different name on the profile"
+    head = fold(profile.get("headline") or "")
+    if re.search(r"\bat\b|\bw\b|@|\bdla\b", head) and not (_tokens(lead["company"]) | _tokens(lead.get("company_short") or "")) & _tokens(head):
+        return "web search link: headline names another employer"
+    return ""
 
 
 def in_hours(t):
@@ -565,6 +636,10 @@ class Campaign:
             return self.event(account, "skipped", lead, f"profile {code}")
         dist = body.get("network_distance")
         s.update(viewed_at=now().isoformat(), distance=dist, viewed_by=account)
+        wrong = lead.get("verify") and not right_person(lead, body)
+        if wrong:  # a link from the web search that leads to someone else, or to someone who has moved on
+            s.update(stage="skipped", reason=wrong)
+            return self.event(account, "skipped", lead, wrong)
         if body.get("provider_id"):
             s["pid"] = body["provider_id"]
         elif lead["provider_id"].startswith("url:"):

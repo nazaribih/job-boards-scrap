@@ -5,8 +5,9 @@ offers to jb-leads-queue (/api/offers); the research agent there processes them 
   python pracuj_push.py --force   # now, whatever the date
 
 launchd starts it every hour while the Mac is on (~/Library/LaunchAgents/com.dealaris.pracuj-push.plist), so a run
-that was due while the lid was closed happens soon after it opens. Plain HTTP first; if pracuj.pl blocks that, a
-Chrome window opens, and if Cloudflare shows a check in it, it waits for you to click it.
+that was due while the lid was closed happens soon after it opens. Plain HTTP only, which works from a home IP:
+if pracuj.pl answers with a Cloudflare check instead, nothing opens and nothing is sent; it tries again 6 hours
+later, and only a third blocked run in a row shows a notification.
 Env (.env): SERVICE_TOKEN, optional JB_SERVICE_URL.
 """
 import argparse
@@ -50,9 +51,18 @@ def main():
     STATE.write_text(json.dumps(st))
     print(f"[{now:%Y-%m-%d %H:%M}] scraping pracuj.pl", flush=True)
 
-    from jbscrap.pracuj import pracuj_pl
+    from jbscrap.pracuj import Blocked, pracuj_pl
     from run import KEYWORDS
-    offers = pracuj_pl(KEYWORDS, max_pages=10)
+    try:
+        offers = pracuj_pl(KEYWORDS, max_pages=10, chrome=False)
+    except Blocked as e:
+        st["blocked"] = st.get("blocked", 0) + 1
+        STATE.write_text(json.dumps(st))
+        print(f"blocked: {e}", flush=True)
+        if st["blocked"] >= 3:
+            notify(f"pracuj.pl блокує запити вже {st['blocked']} рази поспіль; вакансії з інших бордів збираються як завжди")
+        return
+    st["blocked"] = 0
     print(f"{len(offers)} offers", flush=True)
     r = requests.post(f"{os.environ.get('JB_SERVICE_URL', URL).rstrip('/')}/api/offers", timeout=300,
                       headers={"Authorization": f"Bearer {os.environ['SERVICE_TOKEN']}"},

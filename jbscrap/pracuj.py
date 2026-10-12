@@ -84,9 +84,13 @@ def _parse(html):
     return list(_walk(json.loads(m.group(1)))) if m else None
 
 
-def pracuj_pl(keywords, max_pages=10, delay=(2.0, 4.5)):
+class Blocked(Exception):
+    """pracuj.pl answered with a challenge instead of the listing."""
+
+
+def pracuj_pl(keywords, max_pages=10, delay=(2.0, 4.5), chrome=True):
     """Plain HTTP first (from a residential IP pracuj serves the page without a challenge); the Chrome
-    path below is the fallback when Cloudflare blocks it."""
+    path below is the fallback when Cloudflare blocks it. chrome=False (unattended runs): raise Blocked instead."""
     import requests
 
     s = requests.Session()
@@ -100,6 +104,8 @@ def pracuj_pl(keywords, max_pages=10, delay=(2.0, 4.5)):
             except Exception as e:
                 print(f"[pracuj] {url}: {str(e)[:120]}")
                 groups = []
+            if groups is None and not chrome:
+                raise Blocked(f"challenge on {url} after {len(out)} offers")
             if groups is None:
                 print("[pracuj] blocked over plain HTTP, switching to Chrome")
                 return out + [o for o in pracuj_chrome(keywords, max_pages, delay) if o["url"] not in seen]

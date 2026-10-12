@@ -108,6 +108,8 @@ def data():
                      "source": l.get("source", "job_boards"), "campaign": l["campaign"], "note": l.get("note", ""),
                      "stopped": bool({l["provider_id"], l["url"], l["url"].rstrip("/")} & ex), "pid": l["provider_id"], "first_name": (l["lang"] == "uk" and (voc.get(l["name"]) or {}).get("ukrainian") and voc[l["name"]]["name"]) or l["first_name"],
                      "personal_line": l["personal_line"], "company_short": l.get("company_short", ""), "sent": s.get("sent", {}),
+                     "vacancy": l.get("vacancy", ""), "vac_first": l.get("vacancy_first_seen", ""), "vac_last": l.get("vacancy_last_seen", ""),
+                     "hiring_now": l.get("hiring_now"), "found_via": l.get("found_via", ""),
                      "track": l["track"], "lang": l["lang"], "owner": l["owner"], "score": l["score"],
                      "stage": s.get("stage", "queued"), "stage_label": (NOTE_LABEL if s.get("note_sent") else STAGE_LABEL).get(s.get("stage", "queued"), s.get("stage", "")),
                      "next_at": s.get("next_at") or s.get("invite_after"), "reason": s.get("reason", ""),
@@ -295,7 +297,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{ou
 <script>
 const $=id=>document.getElementById(id);
 const NAME={nazarii:"Назарій",hleb:"Глеб"};
-const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const DM=d=>d?d.slice(8,10)+"."+d.slice(5,7):"";const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const when=iso=>iso?new Date(iso).toLocaleString("uk-UA",{weekday:"short",day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):"—";
 const pct=(a,b)=>b?Math.round(100*a/b)+"%":"—";
 let D=null;
@@ -352,7 +354,7 @@ function leads(){
  const q=$("q").value.trim().toLowerCase(),s=$("fs").value;
  const rows=FL().filter(l=>(!s||l.stage===s)&&(!q||(l.name+" "+l.company+" "+l.role).toLowerCase().includes(q))).sort((a,b)=>b.score-a.score);
  $("cnt").textContent=`${rows.length} з ${D.leads.length}`;
- $("leads").innerHTML=rows.map(l=>`<tr${l.stopped?' class="stopped"':""}><td class="wide who"><a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.name)}</a><div class="m">${F().k?"":esc(CN(l.campaign))+" · "}${esc(l.role)} · ${l.lang.toUpperCase()} · трек ${l.track}${l.source&&l.source!=="job_boards"?" · "+({seed:"ранній скан",icp:"пошук агента",pool:"пул компаній"}[l.source]||l.source):""}</div></td>
+ $("leads").innerHTML=rows.map(l=>`<tr${l.stopped?' class="stopped"':""}><td class="wide who"><a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.name)}</a><div class="m">${F().k?"":esc(CN(l.campaign))+" · "}${esc(l.role)} · ${l.lang.toUpperCase()} · трек ${l.track}${l.source&&l.source!=="job_boards"?" · "+({seed:"ранній скан",icp:"пошук агента",pool:"пул компаній"}[l.source]||l.source):""}${l.found_via==="websearch"?" · знайдено вебпошуком":""}${l.vac_first?`<br>Вакансія${l.vacancy?" «"+esc(l.vacancy)+"»":""}: знайшли ${DM(l.vac_first)}, ${l.hiring_now?"ще висить ("+DM(l.vac_last)+")":"знята, востаннє "+DM(l.vac_last)+" → пишемо «шукали»"}`:""}</div></td>
  <td class="wide">${esc(l.company)}<div class="m">${esc(l.niche)}</div></td><td>${l.stopped?`<span class="pill p-bad">Зупинено вручну</span>`:stagePill(l)}${l.reason?`<div class="m">${esc(l.reason)}</div>`:""}</td><td data-k="Акаунт">${NAME[l.owner]}</td><td data-k="Далі">${l.stopped?"—":next(l)}</td>
  <td>${["replied","done"].includes(l.stage)?"":l.stopped?`<button type="button" class="btn sm" data-lead="${esc(l.url)}" data-stop="0">Повернути</button>`:`<button type="button" class="btn sm bad" data-arm="Точно?" data-lead="${esc(l.url)}" data-stop="1">Зупинити</button>`}</td></tr>`).join("")||`<tr><td class="empty">Нікого не знайдено.</td></tr>`;
  for(const b of $("leads").querySelectorAll("[data-lead]"))armed(b,()=>act(b.dataset.stop==="1"?"api/lead/stop":"api/lead/resume",{q:b.dataset.lead}))
