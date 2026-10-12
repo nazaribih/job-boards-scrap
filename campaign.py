@@ -12,9 +12,9 @@ conversation with either account, or an invite already pending stops automation 
 Owner: a 1st-degree connection of one founder goes to that founder (no invite needed); Ukrainian-language leads
 go to Nazarii; the rest alternate in lead-score order so both get an even share of the best leads.
 
-Pacing per account: Mon-Fri 9:00-17:30 Europe/Warsaw, 3-9 min between actions, up to 15 profile views,
-invites starting at 12 a day (+2 per clean day, max 20, max 90 a week) and 25 messages a day; no more than one new
-invite into the same company per week. 401/403/429 or a restriction pauses the account for 48-72 h.
+Pacing per account: Mon-Fri 9:00-17:30 Europe/Warsaw, 3-9 min between actions, up to 15 profile views, invites
+starting at 12 a day (+2 per clean day, max 20, max 90 a week) and 25 messages a day; no more than one new invite into
+the same company per week. Acceptances and replies are read 7:00-23:00 every day. 401/403/429 or a restriction pauses the account for 48-72 h.
 """
 import csv
 import datetime as dt
@@ -817,19 +817,21 @@ class Campaign:
 
     def work(self, account):
         nap(random.uniform(0, 15 * 60))
-        last_sync = 0
+        last_sync, gap = 0, 0
         while True:
             t = now()
-            if not in_hours(t):
-                nap(15 * 60)
-                continue
             if account not in campaigns.accounts_in_use():  # no running campaign sends from this account
                 nap(10 * 60)
                 continue
+            # acceptances and replies are read every 20-40 min in working hours and hourly in the evening and at the
+            # weekend, so the dashboard and the reply alerts keep up; sending stays within working hours
+            if (7, 0) <= (t.hour, t.minute) < (23, 0) and time.time() - last_sync > gap and not guard.paused_until(account):
+                self.sync(account, self.leads())
+                last_sync, gap = time.time(), random.uniform(20, 40) * 60 if in_hours(t) else random.uniform(50, 80) * 60
+            if not in_hours(t):
+                nap(15 * 60)
+                continue
             leads = self.leads()
-            if time.time() - last_sync > random.uniform(90, 150) * 60:
-                self.sync(account, leads)
-                last_sync = time.time()
             with LOCK:
                 kind, lead = self.pick(account, leads)
             if not kind:
