@@ -159,6 +159,17 @@ def vocative(name):
     return cache[name]["name"].strip() if cache[name].get("ukrainian") else ""
 
 
+def outreach_helper_people():
+    """(public_identifier, provider_id) of everyone the outreach-helper app has, except people its own filter turned
+    down: read live from its tables in the same Postgres, else from the copy exported earlier."""
+    if store.DB:
+        try:
+            return store.q("select lower(public_identifier), provider_id from public.leads where status <> 'disqualified'")
+        except Exception as e:
+            print(f"[prepare] outreach-helper leads unreadable, using the saved copy: {str(e)[:120]}")
+    return [(pub, pid) for pub, pid, _ in load(store.path("exclude_outreach_helper.json"), [])]
+
+
 def prepare():
     sys.path.insert(0, str(ROOT))
     from jbscrap.score import company_key
@@ -193,10 +204,10 @@ def prepare():
 
     old = {l["provider_id"]: l for l in campaigns.job_leads()}
     exclude = campaigns.excluded()  # provider ids or LinkedIn URLs taken out by hand
-    # people the outreach-helper is already working (queued, invited, messaged...): one sender per person
-    for pub, pid, _ in load(store.path("exclude_outreach_helper.json"), []):
-        exclude.update(x for x in (pid, pub and f"https://www.linkedin.com/in/{pub}") if x)
-    leads = []
+    # people the outreach-helper has (queued, invited, messaged, waiting for review...): one sender per person
+    for pub, pid in outreach_helper_people():
+        exclude.update(x for x in (pid, pub and pub.lower(), pub and f"https://www.linkedin.com/in/{pub}") if x)
+    leads, seen = [], set()
     for r in csv.DictReader(store.path("decision_makers.csv").open(encoding="utf-8")):
         c = cos.get(r["company"])
         if not r["name"] or not r["person_linkedin"] or not c or c["status"] != "qualified" or c["tier"] not in "AB":
@@ -207,6 +218,12 @@ def prepare():
         lang = (langs.get(r["name"]) or {}).get("lang")
         if not h or not h.get("id") or not lang:
             continue
+        pub = r["person_linkedin"].rstrip("/").rsplit("/", 1)[-1].lower()
+        if pub in exclude:
+            continue
+        if h["id"] in seen or pub in seen:
+            continue  # the same person listed under two spellings of the company
+        seen.update({h["id"], pub})
         if lang == "en" and r["mentions_company"] != "True":
             continue  # foreign HQ staff or a namesake company: nobody we can tell works at the Polish team
         niche = (niches.get(company_key(r["company"])) or {}).get("niche", "Інше")
@@ -233,6 +250,12 @@ def prepare():
                       "niche": niche, "track": track, "lang": lang, "personal_line": pl["line"],
                       "distance": h.get("network_distance"), "owner": prev.get("owner")})
     leads += extra_leads({l["provider_id"] for l in leads} | {l["public_identifier"] for l in leads}, exclude, plines, key, old)
+    # people already in the campaign stay in it when their company drops off the boards (its ads expired) or out of a
+    # tier: someone mid-sequence must get the rest of it, and a hiring company from last month is still a prospect
+    have = {l["provider_id"] for l in leads} | {l["public_identifier"].lower() for l in leads}
+    kept = [l for l in old.values() if l["provider_id"] not in have and l["public_identifier"].lower() not in have
+            and not {l["provider_id"], l["url"], l["url"].rstrip("/"), l["public_identifier"].lower()} & exclude]
+    leads += kept
     save(store.path("pline_cache.json"), plines)
 
     # owners: keep earlier assignments; Ukrainian-language leads to Nazarii; the rest balanced in score order
@@ -295,7 +318,7 @@ def extra_leads(have, exclude, plines, key, old):
 
     def make(pid, url, name, headline, role, company, ckey, track, niche, score, lang, degree, src):
         pub = url.rstrip("/").rsplit("/", 1)[-1]
-        if pid in have or pub in have or url in exclude or pid in exclude or f"https://www.linkedin.com/in/{pub}" in exclude:
+        if pid in have or pub in have or url in exclude or pid in exclude or pub.lower() in exclude or f"https://www.linkedin.com/in/{pub}" in exclude:
             return
         ck = f"{head_key(lang)}|{lang}|{name}|{headline}"
         if ck not in plines and key:

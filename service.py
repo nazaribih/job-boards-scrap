@@ -171,10 +171,30 @@ def _actions():
         "/api/lead/add": lambda b: control.add_lead(b.get("campaign", ""), b.get("url", ""), b.get("name", ""), b.get("company", ""),
                                                     b.get("role", ""), b.get("track", ""), b.get("note", "")),
         "/api/message": lambda b: control.set_message(b.get("campaign", ""), b.get("key", ""), b.get("text", "")),
+        "/api/offers": receive_offers,
     }
 
 
-ACTIONS = {"/api/campaign": None, "/api/lead/stop": None, "/api/lead/resume": None, "/api/lead/add": None, "/api/message": None}
+def receive_offers(b):
+    """pracuj.pl offers scraped on Nazarii's Mac (pracuj_push.py): Cloudflare blocks this server's IP. They replace the
+    board's earlier offers in raw_offers.json and the research agent processes them on its next pass."""
+    source, offers = b.pop("source", ""), b.pop("offers", None) or []
+    if source != "pracuj.pl" or any(o.get("source") != source or not o.get("company") for o in offers):
+        raise ValueError("очікую вакансії з pracuj.pl")
+    raw = DATA / "raw_offers.json"
+    old = json.loads(raw.read_text()) if raw.exists() else []
+    before = sum(o["source"] == source for o in old)
+    if len(offers) < 0.3 * before:  # a run cut short by Cloudflare shouldn't wipe the board's offers
+        raise ValueError(f"лише {len(offers)} вакансій проти {before} минулого разу: схоже, збір обірвався, не замінюю")
+    raw.write_text(json.dumps([o for o in old if o["source"] != source] + offers, ensure_ascii=False))
+    st = store.path("agent_state.json")
+    store.write_json(st, {**store.read_json(st, {}), "pushed_offers": dt.datetime.now(dt.timezone.utc).isoformat()})
+    b["offers"] = len(offers)
+    return {"ok": True, "text": f"Прийнято {len(offers)} вакансій з pracuj.pl (було {before}). Агент обробить їх у найближчий прохід."}
+
+
+ACTIONS = {"/api/campaign": None, "/api/lead/stop": None, "/api/lead/resume": None, "/api/lead/add": None, "/api/message": None,
+           "/api/offers": None}
 
 
 class Handler(BaseHTTPRequestHandler):

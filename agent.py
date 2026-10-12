@@ -3,9 +3,11 @@
   python agent.py tick      # one pass (service.py runs it every 6 hours)
 
 Each pass it decides, and writes down why, in data/agent_log.json:
-- every 3 days: scrape the job boards again (rocketjobs, nofluffjobs, praca.pl, aplikuj.pl; pracuj.pl only works
-  from a home IP), judge the new companies against the pitch deck, estimate headcount, classify the niche, and add
-  them to the company pool;
+- every 2 days: scrape the job boards again (rocketjobs, nofluffjobs, praca.pl, aplikuj.pl; pracuj.pl only works
+  from a home IP, so pracuj_push.py on Nazarii's Mac sends it to /api/offers and the next pass processes it), judge
+  the new companies against the pitch deck, estimate headcount, classify the niche, find their websites and the
+  decision makers named there, and add them to the company pool (the LinkedIn queue then searches their people);
+- every pass: give newly found decision makers a language, so they can enter the campaign;
 - when the LinkedIn queue is close to running out of companies to search, ask the model for new LinkedIn people
   searches (title + sector, in Polish), steered by which niches have been accepting and replying so far;
 - screen the people those searches return (decision maker, company in Poland/Ukraine that sells by phone or online)
@@ -32,7 +34,7 @@ QUERIES = store.path("agent_queries.json")
 HITS = store.path("icp_hits.json")
 SEEDS = store.path("seed_people.json")
 PY = sys.executable
-SCRAPE_EVERY_DAYS = 3
+SCRAPE_EVERY_DAYS = 2
 LOW_WATER = 40  # queue tasks left before the agent writes new LinkedIn searches
 
 QUERY_SCHEMA = {"type": "object", "additionalProperties": False, "required": ["why", "queries"],
@@ -87,21 +89,40 @@ def sh(*args, timeout=7200):
     return r.returncode, (r.stdout + r.stderr)[-400:]
 
 
-def scrape():
+def scrape(boards=True):
+    """Scrape (or, for offers pushed from outside, only process) and take the new companies through every step that
+    needs no LinkedIn. Each step only works on what its cache hasn't seen, so a pass costs little when little is new."""
     before = len({c["key"] for c in load(DATA / "company_pool.json", [])})
-    code, out = sh("run.py", "--sources", "rocketjobs,nofluffjobs,praca,aplikuj", "--merge", "--max-lookups", "0")
-    if code:
-        return note("Збір job-бордів не вдався", out[-200:])
+    dms = dm_count()
+    if boards:
+        code, out = sh("run.py", "--sources", "rocketjobs,nofluffjobs,praca,aplikuj", "--merge", "--max-lookups", "0")
+        if code:
+            return note("Збір job-бордів не вдався", out[-200:])
+    failed = []
     for step in (["judge.py"], ["judge.py", "--size"], ["run.py", "--no-scrape", "--max-lookups", "0"], ["niche.py"],
-                 ["refresh.py"], ["pool.py", "build"], ["pool.py", "judge"]):
-        sh(*step)
+                 ["find_sites.py"], ["site_people.py"], ["refresh.py"], ["lang.py"], ["pool.py", "build"], ["pool.py", "judge"]):
+        code, out = sh(*step)
+        if code:
+            failed.append(f"{' '.join(step)}: {out[-120:]}")
     after = len({c["key"] for c in load(DATA / "company_pool.json", [])})
-    note("Зібрав job-борди", f"+{after - before} нових компаній у пулі (усього {after})",
-         "Минуло 3 дні з попереднього збору, на бордах з'являються нові компанії, що наймають продавців.")
+    note("Зібрав job-борди" if boards else "Обробив вакансії з pracuj.pl",
+         f"+{after - before} нових компаній у пулі (усього {after}), +{dm_count() - dms} осіб, що приймають рішення"
+         + (f"; не вдалося: {'; '.join(failed)}" if failed else ""),
+         "Минуло 2 дні з попереднього збору, на бордах з'являються нові компанії, що наймають продавців." if boards else
+         "Назарій надіслав свіжі вакансії з pracuj.pl (цей борд працює лише з домашнього IP).")
+
+
+def dm_count():
+    p = store.path("decision_makers.csv")
+    if not p.exists():
+        return 0
+    import csv
+    return sum(1 for r in csv.DictReader(p.open(encoding="utf-8")) if r["name"])
 
 
 def queue_left():
-    code, out = sh("linkedin_queue.py", "--status", timeout=300)
+    r = subprocess.run([PY, "linkedin_queue.py", "--status"], cwd=ROOT, capture_output=True, text=True, timeout=300)
+    out = r.stdout
     try:
         return json.loads(out[out.index("{"):])
     except ValueError:
@@ -185,10 +206,16 @@ def tick():
     state = load(STATE, {})
     refresh_campaign(key)  # new people into the campaign first: the long scrape below shouldn't hold them back
     last = state.get("last_scrape")
+    pushed = state.pop("pushed_offers", None)  # pracuj.pl offers sent from the Mac since the last pass
     if not last or now() - dt.datetime.fromisoformat(last) > dt.timedelta(days=SCRAPE_EVERY_DAYS):
         state["last_scrape"] = now().isoformat()
         save(STATE, state)
         scrape()
+    elif pushed:
+        save(STATE, state)
+        scrape(boards=False)
+    elif key:
+        sh("lang.py")  # people the LinkedIn queue found since the last pass
     q = queue_left()
     state["queue"] = q
     save(STATE, state)
