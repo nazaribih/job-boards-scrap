@@ -625,9 +625,11 @@ class Campaign:
         items = [m for m in body.get("items") or [] if m.get("timestamp") and not m.get("is_event")]  # not LinkedIn's own notices
         if items:  # the last message either way, for the lead sheet (crm.py)
             last = max(items, key=lambda m: m["timestamp"])
-            ins = [m["timestamp"] for m in items if not m.get("is_sender")]
+            ins = sorted((m for m in items if not m.get("is_sender")), key=lambda m: m["timestamp"])
             s["chat"] = {"last_from": "us" if last.get("is_sender") else "them", "last_at": last["timestamp"],
-                         "last_text": (last.get("text") or "")[:300], "last_in_at": max(ins, default=None)}
+                         "last_text": (last.get("text") or "")[:300],
+                         "last_in_at": ins[-1]["timestamp"] if ins else None,
+                         "in_text": " / ".join((m.get("text") or "").strip() for m in ins[-3:])[:800]}  # how they answered
         return any(not m.get("is_sender") for m in items)
 
     # ── actions ──

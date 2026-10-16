@@ -4,8 +4,13 @@ what the founders set by hand there (status, next step, notes).
 service.py serves it at /api/sheet (Bearer SHEET_TOKEN or SERVICE_TOKEN); sheets/crm.gs in the sheet calls it every
 10 minutes and on every edit. Hand-set fields are kept in crm.json (in the database in db mode). Setting a person who
 hasn't been invited yet to Lost or Not relevant stops the campaign for them, the same as the dashboard's stop button.
+Each reply is labelled Positive / Neutral / Negative by gpt-5-mini (cached in reply_sentiment.json); a label set by
+hand in the sheet wins.
 """
 import datetime as dt
+import hashlib
+import os
+from concurrent.futures import ThreadPoolExecutor
 from zoneinfo import ZoneInfo
 
 import campaigns
@@ -26,6 +31,17 @@ PIPELINE = {"queued": "Queued", "viewed": "Profile viewed", "invited": "Invite s
             "sent_m1": "Message 1 sent", "sent_f1": "Message 2 sent", "sent_f2": "Message 3 sent", "done": "Accepted",
             "replied": "Replied", "skipped": "Skipped", "expired": "Invite not accepted"}
 NAMES = {"nazarii": "Nazarii", "hleb": "Hleb"}
+CAMPAIGN_NAMES = {"job_boards": "Job boards", "websummit": "Web Summit 2026"}
+REPLY_TYPES = ["Positive", "Neutral", "Negative"]
+SENTIMENT = store.path("reply_sentiment.json")
+SENTIMENT_SYSTEM = """You label a reply to a cold LinkedIn message from a founder of Dealaris (a real-time AI copilot
+for sales calls; some messages were about meeting at Web Summit). Read only what the prospect wrote.
+Positive: open to talking, meeting, a call or a demo, asks about the product, gives a contact or a time, or invites
+them over (to a booth, an event). Negative: not interested, no need, already has a tool, asks not to be contacted,
+or is clearly annoyed. Neutral: anything else, such as a thank-you, an emoji, an out-of-office note, a redirect to
+someone else without interest, or small talk."""
+SENTIMENT_SCHEMA = {"type": "object", "additionalProperties": False, "required": ["label"],
+                    "properties": {"label": {"type": "string", "enum": REPLY_TYPES}}}
 
 
 def _t(iso):
@@ -64,22 +80,53 @@ def status(s, m, now):
     return m["status"]
 
 
-def rows(cid):
-    if cid not in campaigns.CAMPAIGNS:
+def their_text(s):
+    chat = s.get("chat") or {}
+    return chat.get("in_text") or (chat.get("last_text") if chat.get("last_from") == "them" else "")
+
+
+def label_replies(texts, limit=60):
+    """Positive / Neutral / Negative for each reply text, from the cache or from gpt-5-mini (at most `limit` new)."""
+    cache = store.read_json(SENTIMENT, {})
+    key = lambda t: hashlib.sha1(t.encode()).hexdigest()[:16]
+    todo = list({key(t): t for t in texts if t and key(t) not in cache}.items())[:limit]
+    if todo and os.environ.get("OPENAI_API_KEY"):
+        from judge import ask
+
+        def one(kt):
+            try:
+                return kt[0], ask(os.environ["OPENAI_API_KEY"], kt[1], SENTIMENT_SYSTEM, SENTIMENT_SCHEMA)["label"]
+            except Exception:  # unlabelled for now; the next sync tries again
+                return kt[0], None
+        with ThreadPoolExecutor(6) as ex:
+            for k, label in ex.map(one, todo):
+                if label:
+                    cache[k] = label
+        store.write_json(SENTIMENT, cache)
+    return {t: cache.get(key(t), "") for t in texts if t}
+
+
+def rows(cid="all"):
+    if cid != "all" and cid not in campaigns.CAMPAIGNS:
         raise ValueError(f"unknown campaign {cid!r}")
     st = campaigns.load_state()
     crm = store.read_json(CRM, {})
     ex = campaigns.excluded()
     now = dt.datetime.now(dt.timezone.utc)
+    leads = campaigns.all_leads(only_enabled=False, state=st["leads"]) if cid == "all" else campaigns.leads(cid)
+    labels = label_replies([their_text(st["leads"].get(l["provider_id"], {})) for l in leads])
     out = []
-    for l in campaigns.leads(cid):
+    for l in leads:
         s, m = st["leads"].get(l["provider_id"], {}), crm.get(l["provider_id"], {})
         chat = s.get("chat") or {}
+        replied = s.get("stage") == "replied" or chat.get("last_in_at")
         stopped = bool({l["provider_id"], l["url"], l["url"].rstrip("/")} & ex)
         last = max(filter(None, [s.get("viewed_at"), s.get("invited_at"), s.get("connected_at"), s.get("replied_at"),
                                  chat.get("last_at")]), key=_t, default="")
         out.append({
             "key": l["provider_id"], "status": status(s, m, now), "name": l["name"], "url": l["url"],
+            "campaign": CAMPAIGN_NAMES.get(l["campaign"], l["campaign"]),
+            "reply_type": m.get("reply") or (labels.get(their_text(s), "") if replied else ""),
             "company": l.get("company_short") or l["company"], "role": l.get("role") or l.get("headline", ""),
             "country": l.get("country", ""), "owner": NAMES.get(l["owner"], l["owner"]),
             "pipeline": PIPELINE.get(s.get("stage", "queued"), s.get("stage", "")) + (" (stopped)" if stopped else ""),
@@ -92,7 +139,8 @@ def rows(cid):
     rank = {k: i for i, k in enumerate(ORDER)}
     out.sort(key=lambda r: (rank.get(r["status"], len(ORDER)), r["last_activity"] == "", _neg(r["last_activity"]),
                             -float(r["score"] or 0)))
-    return {"ok": True, "campaign": campaigns.CAMPAIGNS[cid]["name"], "statuses": MANUAL + [a for a in AUTO if a not in MANUAL],
+    return {"ok": True, "campaigns": [CAMPAIGN_NAMES.get(c, c) for c in campaigns.CAMPAIGNS],
+            "statuses": MANUAL + [a for a in AUTO if a not in MANUAL], "reply_types": REPLY_TYPES,
             "rows": out, "at": _day(now.isoformat())}
 
 
@@ -101,8 +149,8 @@ def _neg(s):
 
 
 def apply(cid, changes, who="sheet"):
-    """Hand edits from the sheet: [{key, status?, next_step?, notes?}]. Returns how many people changed."""
-    leads = {l["provider_id"]: l for l in campaigns.leads(cid)}
+    """Hand edits from the sheet: [{key, status?, reply_type?, next_step?, notes?}]. Returns how many people changed."""
+    leads = {l["provider_id"]: l for l in (campaigns.all_leads(only_enabled=False) if cid == "all" else campaigns.leads(cid))}
     crm = store.read_json(CRM, {})
     st = campaigns.load_state()["leads"]
     now = dt.datetime.now(dt.timezone.utc)
@@ -124,6 +172,8 @@ def apply(cid, changes, who="sheet"):
                     m["stopped_by_sheet"] = True
                 elif m.pop("stopped_by_sheet", None) and new not in STOPS:
                     resume.append(l)
+        if "reply_type" in c:
+            m["reply"] = str(c["reply_type"] or "").strip()
         if "next_step" in c:
             m["next"] = str(c["next_step"] or "").strip()
         if "notes" in c:
