@@ -81,6 +81,18 @@ def status(s, m, now):
     return m["status"]
 
 
+REPLY_TEXT = store.path("reply_text.json")  # what people wrote, read from Unipile for replies older than chat tracking
+
+
+def add_saved_texts(lead_states):
+    """Fill in, in memory only, the reply text of people whose chat the sender hasn't read since texts were kept."""
+    for pid, text in store.read_json(REPLY_TEXT, {}).items():
+        s = lead_states.get(pid)
+        if s is not None and not (s.get("chat") or {}).get("in_text"):
+            s["chat"] = {**(s.get("chat") or {}), "in_text": text}
+    return lead_states
+
+
 def their_text(s):
     chat = s.get("chat") or {}
     return chat.get("in_text") or (chat.get("last_text") if chat.get("last_from") == "them" else "")
@@ -115,6 +127,7 @@ def rows(cid="all"):
     ex = campaigns.excluded()
     now = dt.datetime.now(dt.timezone.utc)
     leads = campaigns.all_leads(only_enabled=False, state=st["leads"]) if cid == "all" else campaigns.leads(cid)
+    add_saved_texts(st["leads"])
     labels = label_replies([their_text(st["leads"].get(l["provider_id"], {})) for l in leads])
     out = []
     for l in leads:

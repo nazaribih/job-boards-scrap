@@ -104,6 +104,7 @@ def data():
     ex = campaigns.excluded()
     import crm
     marks = _load("crm.json", {})  # reply type and outcome set by hand (here or in the Google Sheet)
+    crm.add_saved_texts(S)  # in memory: the page never writes the sender's state
     labels = crm.label_replies([crm.their_text(S.get(l["provider_id"], {})) for l in leads])
     rows = []
     for l in leads:
