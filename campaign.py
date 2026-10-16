@@ -622,7 +622,7 @@ class Campaign:
         if code in (401, 403, 429):
             self.trouble(account, code, body)
             return None
-        items = [m for m in body.get("items") or [] if m.get("timestamp")]
+        items = [m for m in body.get("items") or [] if m.get("timestamp") and not m.get("is_event")]  # not LinkedIn's own notices
         if items:  # the last message either way, for the lead sheet (crm.py)
             last = max(items, key=lambda m: m["timestamp"])
             ins = [m["timestamp"] for m in items if not m.get("is_sender")]
