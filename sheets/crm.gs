@@ -6,9 +6,11 @@
  * status. Status is worked out from the campaign until someone sets it by hand. Lost or Not relevant on someone not
  * invited yet stops the campaign for them.
  *
- * Install: Extensions -> Apps Script, paste this file, save, reload the sheet, then Dealaris -> Set up (asks for the
- * sheet token once and adds the triggers).
+ * Install as a standalone project on the account that owns the sheet (script.google.com -> New project; Extensions ->
+ * Apps Script on the sheet fails while several Google accounts are signed in): paste this file, add the script
+ * property TOKEN = SHEET_TOKEN (Project settings -> Script properties), then run setup() once and allow access.
  */
+const SHEET_ID = '11KwJMd6abswTQMo1hk85XUjEwTv1rduBkWPDaYzVW9c';
 const URL = 'https://jb-leads-queue-production.up.railway.app/api/sheet?campaign=websummit';
 const TAB = 'Web Summit 2026';
 const SUMMARY = 'Summary';
@@ -30,27 +32,20 @@ const COLORS = {
   'Not relevant': '#cccccc', 'Invite not accepted': '#eeeeee', 'Skipped': '#eeeeee',
 };
 
-function onOpen() {
-  SpreadsheetApp.getUi().createMenu('Dealaris')
-    .addItem('Sync now', 'sync')
-    .addItem('Set up (token + auto-sync)', 'setup')
-    .addToUi();
+let SS_ = null;
+function ss_() {
+  return SS_ || (SS_ = SpreadsheetApp.openById(SHEET_ID));
 }
 
+// run once from the editor: adds the triggers, lays the sheet out and syncs
 function setup() {
-  const ui = SpreadsheetApp.getUi();
-  const props = PropertiesService.getScriptProperties();
-  const r = ui.prompt('Dealaris sheet token', props.getProperty('TOKEN') ? 'Leave empty to keep the saved one.' :
-    'Paste SHEET_TOKEN (Nazarii has it in job-boards-scrap/.env).', ui.ButtonSet.OK_CANCEL);
-  if (r.getSelectedButton() !== ui.Button.OK) return;
-  if (r.getResponseText().trim()) props.setProperty('TOKEN', r.getResponseText().trim());
-  if (!props.getProperty('TOKEN')) return ui.alert('No token saved.');
+  if (!PropertiesService.getScriptProperties().getProperty('TOKEN')) throw new Error('Add the script property TOKEN first.');
   ScriptApp.getProjectTriggers().forEach(t => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('sync').timeBased().everyMinutes(10).create();
-  ScriptApp.newTrigger('edited').forSpreadsheet(SpreadsheetApp.getActive()).onEdit().create();
+  ScriptApp.newTrigger('edited').forSpreadsheet(SHEET_ID).onEdit().create();
   layout_();
   sync();
-  ui.alert('Done: the sheet syncs every 10 minutes and after each edit of Status, Next step or Notes.');
+  Logger.log('Done: the sheet syncs every 10 minutes and after each edit of Status, Next step or Notes.');
 }
 
 function edited(e) {
@@ -66,14 +61,14 @@ function sync() {
     const sh = sheet_();
     const res = call_(changes_(sh));
     write_(sh, res);
-    SpreadsheetApp.getActive().getSheetByName(SUMMARY).getRange('B1').setValue(res.at);
+    ss_().getSheetByName(SUMMARY).getRange('B1').setValue(res.at);
   } finally {
     lock.releaseLock();
   }
 }
 
 function sheet_() {
-  const ss = SpreadsheetApp.getActive();
+  const ss = ss_();
   let sh = ss.getSheetByName(TAB);
   if (!sh) {
     const only = ss.getSheets().length === 1 && ss.getSheets()[0].getLastRow() === 0 ? ss.getSheets()[0] : null;
@@ -84,7 +79,7 @@ function sheet_() {
 }
 
 function text_(v) {
-  if (v instanceof Date) return Utilities.formatDate(v, SpreadsheetApp.getActive().getSpreadsheetTimeZone(), 'yyyy-MM-dd');
+  if (v instanceof Date) return Utilities.formatDate(v, ss_().getSpreadsheetTimeZone(), 'yyyy-MM-dd');
   return String(v === null || v === undefined ? '' : v).trim();
 }
 
@@ -109,7 +104,7 @@ function changes_(sh) {
 
 function call_(changes) {
   const token = PropertiesService.getScriptProperties().getProperty('TOKEN');
-  if (!token) throw new Error('Run Dealaris -> Set up first.');
+  if (!token) throw new Error('Add the script property TOKEN, then run setup().');
   const r = UrlFetchApp.fetch(URL, {
     method: 'post', contentType: 'application/json', muteHttpExceptions: true,
     headers: {Authorization: 'Bearer ' + token}, payload: JSON.stringify({changes}),
@@ -137,7 +132,7 @@ function write_(sh, res) {
 }
 
 function layout_() {
-  const ss = SpreadsheetApp.getActive();
+  const ss = ss_();
   const sh = ss.getSheetByName(TAB) || ss.insertSheet(TAB, 0);
   sh.getRange(1, 1, 1, COLS.length).setValues([COLS.map(c => c[0])])
     .setFontWeight('bold').setBackground('#1f2937').setFontColor('#ffffff');
