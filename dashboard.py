@@ -122,7 +122,7 @@ def data():
                      "replied_at": s.get("replied_at"), "reach": sorted(reach[l["provider_id"]]),
                      "replied": replied, "reply_type": m.get("reply") or (labels.get(crm.their_text(s), "") if replied else ""),
                      "reply_auto": not m.get("reply"), "outcome": m.get("status") if m.get("status") in crm.OUTCOMES else "",
-                     "inv_at": s.get("invited_at"), "acc_at": s.get("connected_at"),
+                     "inv_at": s.get("invited_at"), "acc_at": s.get("connected_at"), "note": bool(s.get("note_sent")),
                      "rep_at": s.get("replied_at") or chat.get("last_in_at"),
                      "their_text": crm.their_text(s)[:400] if replied else "",
                      "last_from": chat.get("last_from", ""), "last_at": chat.get("last_at"), "last": max([v for v in (s.get("viewed_at"), s.get("invited_at"), s.get("connected_at"),
@@ -211,11 +211,11 @@ td{padding:9px 12px;border-bottom:1px solid var(--ln);vertical-align:top}tr:last
 .addf label{display:grid;gap:4px;font-size:12.5px;color:var(--i3)}.addf .full{grid-column:1/-1}
 .chart{padding:14px 16px;display:grid;gap:10px;align-content:start}.chart h3{font:600 14px var(--fb);color:var(--i2);margin:0}
 .chart svg{display:block;width:100%;height:auto}.gl{stroke:var(--ln);stroke-width:1}.ax{fill:var(--i3);font:10px var(--fm)}
-.dn{display:flex;gap:22px;align-items:center;flex-wrap:wrap}.dn svg{width:150px;flex:0 0 150px}
-.dnb{font:700 24px var(--fd);fill:var(--ink)}.dns{font:11px var(--fb);fill:var(--i3)}
-.lg{list-style:none;margin:0;padding:0;display:grid;gap:6px;font-size:13.5px;flex:1 1 180px}
-.lg li{display:grid;grid-template-columns:12px minmax(0,1fr) auto 3.2em;gap:8px;align-items:center;color:var(--i2)}
-.lg i{width:12px;height:12px;border-radius:3px}.lg b{font:600 13px var(--fm);color:var(--ink);text-align:right}.lg span{font:12px var(--fm);color:var(--i3);text-align:right}
+.sbars{display:grid;gap:12px}.srow{display:grid;grid-template-columns:minmax(0,15em) minmax(0,1fr) 6.5em;gap:4px 10px;align-items:center}
+.srow .lbl{font-size:13.5px}.srow.tot{border-top:1px solid var(--ln);padding-top:10px}.srow.tot .lbl{font-weight:600;color:var(--ink)}
+.srow .tr{height:14px}.stk{display:flex;height:100%;min-width:3px}.stk span{display:block;height:100%}
+.srow .val b{color:var(--ink)}.sdet{grid-column:1/-1;font-size:12px}
+@media (max-width:680px){.srow{grid-template-columns:minmax(0,1fr) 6em}.srow .tr{grid-column:1/-1;grid-row:2}}
 .lgh{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--i2)}.lgh i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
 .rsel{font:13px var(--fb);color:var(--ink);background:var(--sf);border:1px solid var(--ln);border-radius:7px;padding:5px 7px;max-width:100%}
 .quote{font-size:13px;color:var(--i2);margin-top:4px;overflow-wrap:anywhere}
@@ -275,7 +275,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{ou
    <p class="m" id="sched" style="margin:0"></p>
    <div class="kpis" id="kpis"></div>
    <section><h2>Відповіді й результат</h2><div class="kpis" id="rk"></div>
-    <div class="g2" style="margin-top:14px"><div class="card chart"><h3>Тип відповідей</h3><div id="donut"></div></div>
+    <div class="g2" style="margin-top:14px"><div class="card chart"><h3>Відповіді за повідомленням</h3><div id="steps"></div></div>
      <div class="card chart"><h3>Динаміка по днях</h3><div id="trend"></div></div></div></section>
    <div class="g2" id="accts"></div>
    <div class="g2"><section><h2>Воронка</h2><div class="bars" id="funnel"></div></section>
@@ -354,24 +354,38 @@ function camps(){const k=F().k;
 const RT=[["Positive","Позитивна","var(--ok)"],["Neutral","Нейтральна","var(--i3)"],["Negative","Негативна","var(--bad)"]];
 const OUT=[["Meeting booked","Зустріч призначено"],["Won","Угода"],["Lost","Програно"],["Not relevant","Не релевантно"]];
 const day=iso=>iso?new Date(iso).toLocaleDateString("sv-SE",{timeZone:"Europe/Warsaw"}):"";
+// a reply counts once we have what the person wrote and it is labelled; replies from before reply texts were kept
+// are left out until the LinkedIn sync brings their text in
+const real=l=>l.replied&&!!l.reply_type;
+const STEPS_MSG=[["m1","Повідомлення 1"],["f1","Повідомлення 2"],["f2","Повідомлення 3"],["f3","Повідомлення 4"]];
+function replyStep(l){const at=new Date(l.rep_at||0);let best=null,bt=0;
+ for(const [k,v] of Object.entries(l.sent||{})){const t=new Date(v);if(t<=at&&t>=bt){best=k;bt=t}}return best}
+// who could read message k: it was sent, and for a message that went with the invite, the invite was accepted
+const got=(l,k)=>!!(l.sent||{})[k]&&(k!=="m1"||!l.note||!!l.acc_at);
 function results(fl){
- const acc=fl.filter(l=>l.acc_at).length,rep=fl.filter(l=>l.replied),n=t=>rep.filter(l=>l.reply_type===t).length;
+ const acc=fl.filter(l=>l.acc_at).length,rep=fl.filter(real),n=t=>rep.filter(l=>l.reply_type===t).length;
+ const wait=fl.filter(l=>l.replied&&!l.reply_type).length;
  const meet=fl.filter(l=>l.outcome==="Meeting booked"||l.outcome==="Won").length,won=fl.filter(l=>l.outcome==="Won").length;
- $("rk").innerHTML=[[pct(rep.length,acc),"reply rate",`${rep.length} відповідей з ${acc} прийнятих`],
+ $("rk").innerHTML=[[pct(rep.length,acc),"reply rate",`${rep.length} відповідей з ${acc} прийнятих`+(wait?` · ще ${wait} без тексту, не враховані`:"")],
   [n("Positive"),"позитивних",pct(n("Positive"),rep.length)+" від відповідей"],[n("Neutral"),"нейтральних",pct(n("Neutral"),rep.length)+" від відповідей"],
   [n("Negative"),"негативних",pct(n("Negative"),rep.length)+" від відповідей"],[meet,"зустрічей",pct(meet,acc)+" від прийнятих"+(won?` · ${won} угод`:"")]]
   .map(([b,s,i])=>`<div class="kpi"><b>${b}</b><span>${s}</span><i>${i}</i></div>`).join("");
- const parts=RT.map(([k,lab,col])=>[lab,n(k),col]),un=rep.length-parts.reduce((a,p)=>a+p[1],0);
- if(un)parts.push(["Ще не розмічено",un,"var(--ln)"]);donut($("donut"),parts);trend($("trend"),fl)}
-function donut(el,parts){const tot=parts.reduce((a,p)=>a+p[1],0);
- if(!tot){el.innerHTML=`<p class="m" style="margin:0">Відповідей за цим фільтром поки немає.</p>`;return}
- const R=56,C=2*Math.PI*R;let off=0;
- const segs=parts.filter(p=>p[1]).map(([lab,v,col])=>{const len=v/tot*C,g=`<circle r="${R}" cx="75" cy="75" fill="none" style="stroke:${col}" stroke-width="24" stroke-dasharray="${len.toFixed(2)} ${(C-len).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}" transform="rotate(-90 75 75)"><title>${esc(lab)}: ${v}</title></circle>`;off+=len;return g}).join("");
- el.innerHTML=`<div class="dn"><svg viewBox="0 0 150 150" role="img" aria-label="Тип відповідей">${segs}<text x="75" y="76" text-anchor="middle" class="dnb">${tot}</text><text x="75" y="95" text-anchor="middle" class="dns">відповідей</text></svg>
- <ul class="lg">${parts.map(([lab,v,col])=>`<li><i style="background:${col}"></i>${esc(lab)}<b>${v}</b><span>${pct(v,tot)}</span></li>`).join("")}</ul></div>`}
-function trend(el,fl){const per=Math.max(F().p,7),days=[];for(let i=per-1;i>=0;i--)days.push(day(new Date(Date.now()-i*864e5).toISOString()));
+ steps($("steps"),fl,rep);trend($("trend"),fl,rep)}
+function steps(el,fl,rep){
+ const row=(lab,recv,r)=>({lab,recv,n:r.length,t:RT.map(([k])=>r.filter(l=>l.reply_type===k).length)});
+ const rows=STEPS_MSG.map(([k,lab])=>row(lab,fl.filter(l=>got(l,k)).length,rep.filter(l=>replyStep(l)===k))).filter(r=>r.recv);
+ if(!rows.length){el.innerHTML=`<p class="m" style="margin:0">Повідомлень за цим фільтром ще не надсилали.</p>`;return}
+ rows.push(row("Загалом",fl.filter(l=>got(l,"m1")).length,rep));
+ const top=Math.max(.01,...rows.map(r=>r.recv?r.n/r.recv:0));
+ el.innerHTML=`<div class="sbars">${rows.map(r=>{const rate=r.recv?r.n/r.recv:0;
+  return `<div class="srow${r.lab==="Загалом"?" tot":""}"><span class="lbl">${r.lab}<span class="m"> · отримали ${r.recv}</span></span>
+  <span class="tr"><span class="stk" style="width:${(rate/top*100).toFixed(1)}%">${r.t.map((v,j)=>v?`<span style="flex:${v};background:${RT[j][2]}" title="${RT[j][1]}: ${v}"></span>`:"").join("")}</span></span>
+  <span class="val"><b>${pct(r.n,r.recv)}</b> · ${r.n}</span>
+  <span class="m sdet">${RT.map(([,lab],j)=>`${lab.toLowerCase()} ${r.t[j]}`).join(" · ")}</span></div>`}).join("")}</div>
+ <div class="lgh">${RT.map(([,lab,col])=>`<span><i style="background:${col}"></i>${lab}</span>`).join("")}<span class="m">довжина смуги: reply rate після цього повідомлення</span></div>`}
+function trend(el,fl,rep){const per=Math.max(F().p,7),days=[];for(let i=per-1;i>=0;i--)days.push(day(new Date(Date.now()-i*864e5).toISOString()));
  const S=[["inv_at","Інвайти","var(--i3)"],["acc_at","Прийняли","var(--ac)"],["rep_at","Відповіли","var(--ok)"]];
- const cnt=S.map(([k])=>{const c={};for(const l of fl){const d=day(l[k]);if(d)c[d]=(c[d]||0)+1}return days.map(d=>c[d]||0)});
+ const cnt=S.map(([k])=>{const c={};for(const l of k==="rep_at"?rep:fl){const d=day(l[k]);if(d)c[d]=(c[d]||0)+1}return days.map(d=>c[d]||0)});
  const max=Math.max(1,...cnt.flat()),step=Math.max(1,Math.ceil(max/4)),top=step*Math.ceil(max/step);
  const W=640,H=200,pl=30,pb=22,pt=8,cw=(W-pl)/days.length,bw=Math.max(2,Math.min(12,(cw-4)/3)),y=v=>H-pb-(H-pb-pt)*v/top;
  let g="";for(let v=0;v<=top;v+=step)g+=`<line x1="${pl}" x2="${W}" y1="${y(v)}" y2="${y(v)}" class="gl"/><text x="${pl-6}" y="${y(v)+3.5}" text-anchor="end" class="ax">${v}</text>`;
