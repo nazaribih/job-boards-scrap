@@ -179,7 +179,22 @@ def _actions():
                                                     b.get("role", ""), b.get("track", ""), b.get("note", "")),
         "/api/message": lambda b: control.set_message(b.get("campaign", ""), b.get("key", ""), b.get("text", "")),
         "/api/offers": receive_offers,
+        "/api/lead/crm": lead_crm,
     }
+
+
+def lead_crm(b):
+    """Reply type / outcome set on the dashboard's Replies tab: the same store as the Google Sheet (crm.py)."""
+    import crm
+    ch = {k: b[k] for k in ("key", "reply_type", "status") if k in b}
+    if not ch.get("key"):
+        raise ValueError("не вказано ліда")
+    if ch.get("reply_type", "") not in ("", *crm.REPLY_TYPES) or ch.get("status", "") not in ("", *crm.MANUAL):
+        raise ValueError("невідоме значення")
+    res = crm.apply("all", [ch], who="дашборд")
+    if not res["changed"]:
+        raise ValueError("ліда не знайдено")
+    return {"ok": True, "text": "Збережено."}
 
 
 def receive_offers(b):
@@ -203,7 +218,7 @@ def receive_offers(b):
 
 
 ACTIONS = {"/api/campaign": None, "/api/lead/stop": None, "/api/lead/resume": None, "/api/lead/add": None, "/api/message": None,
-           "/api/offers": None}
+           "/api/offers": None, "/api/lead/crm": None}
 
 
 _google_seen = {}

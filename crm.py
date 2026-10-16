@@ -25,6 +25,7 @@ AUTO = ["To review", "Needs follow-up", "Waiting for reply", "Accepted", "In seq
 ORDER = ["To review", "Needs follow-up", "Meeting booked", "Waiting for reply", "Accepted", "In sequence", "Invite sent",
          "Won", "Queued", "Invite not accepted", "Lost", "Not relevant", "Skipped"]
 STOPS = {"Lost", "Not relevant"}
+OUTCOMES = ["Meeting booked", "Won", "Lost", "Not relevant"]  # what came of a conversation, set by hand
 FOLLOW_UP_DAYS = 3  # no answer to our last message for this long: follow up
 ACCEPTED_DAYS = 2   # accepted an invite that carried the message, and said nothing for this long
 PIPELINE = {"queued": "Queued", "viewed": "Profile viewed", "invited": "Invite sent", "connected": "Accepted",

@@ -102,9 +102,14 @@ def data():
 
     voc = _load("voc_cache.json", {})
     ex = campaigns.excluded()
+    import crm
+    marks = _load("crm.json", {})  # reply type and outcome set by hand (here or in the Google Sheet)
+    labels = crm.label_replies([crm.their_text(S.get(l["provider_id"], {})) for l in leads])
     rows = []
     for l in leads:
         s = S.get(l["provider_id"], {})
+        m, chat = marks.get(l["provider_id"], {}), s.get("chat") or {}
+        replied = s.get("stage") == "replied" or bool(chat.get("last_in_at"))
         rows.append({"name": l["name"], "url": l["url"], "role": l["role"] or l.get("headline", "")[:80], "company": l["company"], "niche": l["niche"],
                      "source": l.get("source", "job_boards"), "campaign": l["campaign"], "note": l.get("note", ""),
                      "stopped": bool({l["provider_id"], l["url"], l["url"].rstrip("/")} & ex), "pid": l["provider_id"], "first_name": (l["lang"] == "uk" and (voc.get(l["name"]) or {}).get("ukrainian") and voc[l["name"]]["name"]) or l["first_name"],
@@ -114,7 +119,13 @@ def data():
                      "track": l["track"], "lang": l["lang"], "owner": l["owner"], "score": l["score"],
                      "stage": s.get("stage", "queued"), "stage_label": (NOTE_LABEL if s.get("note_sent") else STAGE_LABEL).get(s.get("stage", "queued"), s.get("stage", "")),
                      "next_at": s.get("next_at") or s.get("invite_after"), "reason": s.get("reason", ""),
-                     "replied_at": s.get("replied_at"), "reach": sorted(reach[l["provider_id"]]), "last": max([v for v in (s.get("viewed_at"), s.get("invited_at"), s.get("connected_at"),
+                     "replied_at": s.get("replied_at"), "reach": sorted(reach[l["provider_id"]]),
+                     "replied": replied, "reply_type": m.get("reply") or (labels.get(crm.their_text(s), "") if replied else ""),
+                     "reply_auto": not m.get("reply"), "outcome": m.get("status") if m.get("status") in crm.OUTCOMES else "",
+                     "inv_at": s.get("invited_at"), "acc_at": s.get("connected_at"),
+                     "rep_at": s.get("replied_at") or chat.get("last_in_at"),
+                     "their_text": crm.their_text(s)[:400] if replied else "",
+                     "last_from": chat.get("last_from", ""), "last_at": chat.get("last_at"), "last": max([v for v in (s.get("viewed_at"), s.get("invited_at"), s.get("connected_at"),
                                                                               *s.get("sent", {}).values(), s.get("replied_at")) if v] or [""])})
     days = collections.defaultdict(collections.Counter)
     for e in state["events"]:
@@ -198,6 +209,16 @@ td{padding:9px 12px;border-bottom:1px solid var(--ln);vertical-align:top}tr:last
 .addf summary{cursor:pointer;font-weight:600;color:var(--ac);padding:8px 0}
 .addf form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:4px 0 14px}
 .addf label{display:grid;gap:4px;font-size:12.5px;color:var(--i3)}.addf .full{grid-column:1/-1}
+.chart{padding:14px 16px;display:grid;gap:10px;align-content:start}.chart h3{font:600 14px var(--fb);color:var(--i2);margin:0}
+.chart svg{display:block;width:100%;height:auto}.gl{stroke:var(--ln);stroke-width:1}.ax{fill:var(--i3);font:10px var(--fm)}
+.dn{display:flex;gap:22px;align-items:center;flex-wrap:wrap}.dn svg{width:150px;flex:0 0 150px}
+.dnb{font:700 24px var(--fd);fill:var(--ink)}.dns{font:11px var(--fb);fill:var(--i3)}
+.lg{list-style:none;margin:0;padding:0;display:grid;gap:6px;font-size:13.5px;flex:1 1 180px}
+.lg li{display:grid;grid-template-columns:12px minmax(0,1fr) auto 3.2em;gap:8px;align-items:center;color:var(--i2)}
+.lg i{width:12px;height:12px;border-radius:3px}.lg b{font:600 13px var(--fm);color:var(--ink);text-align:right}.lg span{font:12px var(--fm);color:var(--i3);text-align:right}
+.lgh{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--i2)}.lgh i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.rsel{font:13px var(--fb);color:var(--ink);background:var(--sf);border:1px solid var(--ln);border-radius:7px;padding:5px 7px;max-width:100%}
+.quote{font-size:13px;color:var(--i2);margin-top:4px;overflow-wrap:anywhere}
 .addf input,.addf select,.addf textarea,.medit textarea{font:14px var(--fb);color:var(--ink);background:var(--sf);border:1px solid var(--ln);border-radius:8px;padding:8px 10px;min-width:0;width:100%}
 .medit{display:grid;gap:8px}.medit textarea{min-height:9em;resize:vertical;line-height:1.55}.medit .cacts{justify-content:flex-start}
 tr.stopped td{opacity:.6}
@@ -253,6 +274,9 @@ button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{ou
    <div class="camps" id="camps"></div>
    <p class="m" id="sched" style="margin:0"></p>
    <div class="kpis" id="kpis"></div>
+   <section><h2>Відповіді й результат</h2><div class="kpis" id="rk"></div>
+    <div class="g2" style="margin-top:14px"><div class="card chart"><h3>Тип відповідей</h3><div id="donut"></div></div>
+     <div class="card chart"><h3>Динаміка по днях</h3><div id="trend"></div></div></div></section>
    <div class="g2" id="accts"></div>
    <div class="g2"><section><h2>Воронка</h2><div class="bars" id="funnel"></div></section>
     <section><h2>Хто в кампанії</h2><div class="bars" id="mix"></div></section></div>
@@ -275,7 +299,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{ou
    </form></details>
   <div class="card"><table class="stack"><thead><tr><th>Людина</th><th>Компанія</th><th>Етап</th><th>Акаунт</th><th>Далі</th><th></th></tr></thead><tbody id="leads"></tbody></table></div>
  </section>
- <section id="rp" hidden><div class="card"><table class="stack"><thead><tr><th>Коли</th><th>Хто</th><th>Компанія</th><th>Акаунт</th></tr></thead><tbody id="replies"></tbody></table></div></section>
+ <section id="rp" hidden><p class="m" style="margin:0 0 12px">Тип відповіді ставить модель; якщо вона помилилась, змініть його тут. Результат (зустріч, угода) ставите ви. Те саме видно в Google-таблиці.</p><div class="card"><table class="stack"><thead><tr><th>Коли</th><th>Хто</th><th>Компанія</th><th>Акаунт</th><th>Тип відповіді</th><th>Результат</th></tr></thead><tbody id="replies"></tbody></table></div></section>
  <section id="ms" hidden>
   <div class="ctl"><select id="mc" aria-label="Кампанія"></select><select id="mt" aria-label="Трек"></select>
    <select id="ml" aria-label="Мова"></select>
@@ -327,6 +351,34 @@ function camps(){const k=F().k;
    <span class="m">${k===c.id?"Фільтр по цій кампанії увімкнено":"Натисніть картку, щоб відфільтрувати"}</span></div></div>`}).join("");
  for(const b of document.querySelectorAll("[data-camp]"))b.onclick=e=>{if(e.target.closest("button"))return;$("gfk").value=$("gfk").value===b.dataset.camp?"":b.dataset.camp;saveF();draw()};
  for(const b of document.querySelectorAll("[data-toggle]"))armed(b,()=>act("api/campaign",{campaign:b.dataset.toggle,enabled:b.dataset.on==="1"}))}
+const RT=[["Positive","Позитивна","var(--ok)"],["Neutral","Нейтральна","var(--i3)"],["Negative","Негативна","var(--bad)"]];
+const OUT=[["Meeting booked","Зустріч призначено"],["Won","Угода"],["Lost","Програно"],["Not relevant","Не релевантно"]];
+const day=iso=>iso?new Date(iso).toLocaleDateString("sv-SE",{timeZone:"Europe/Warsaw"}):"";
+function results(fl){
+ const acc=fl.filter(l=>l.acc_at).length,rep=fl.filter(l=>l.replied),n=t=>rep.filter(l=>l.reply_type===t).length;
+ const meet=fl.filter(l=>l.outcome==="Meeting booked"||l.outcome==="Won").length,won=fl.filter(l=>l.outcome==="Won").length;
+ $("rk").innerHTML=[[pct(rep.length,acc),"reply rate",`${rep.length} відповідей з ${acc} прийнятих`],
+  [n("Positive"),"позитивних",pct(n("Positive"),rep.length)+" від відповідей"],[n("Neutral"),"нейтральних",pct(n("Neutral"),rep.length)+" від відповідей"],
+  [n("Negative"),"негативних",pct(n("Negative"),rep.length)+" від відповідей"],[meet,"зустрічей",pct(meet,acc)+" від прийнятих"+(won?` · ${won} угод`:"")]]
+  .map(([b,s,i])=>`<div class="kpi"><b>${b}</b><span>${s}</span><i>${i}</i></div>`).join("");
+ const parts=RT.map(([k,lab,col])=>[lab,n(k),col]),un=rep.length-parts.reduce((a,p)=>a+p[1],0);
+ if(un)parts.push(["Ще не розмічено",un,"var(--ln)"]);donut($("donut"),parts);trend($("trend"),fl)}
+function donut(el,parts){const tot=parts.reduce((a,p)=>a+p[1],0);
+ if(!tot){el.innerHTML=`<p class="m" style="margin:0">Відповідей за цим фільтром поки немає.</p>`;return}
+ const R=56,C=2*Math.PI*R;let off=0;
+ const segs=parts.filter(p=>p[1]).map(([lab,v,col])=>{const len=v/tot*C,g=`<circle r="${R}" cx="75" cy="75" fill="none" style="stroke:${col}" stroke-width="24" stroke-dasharray="${len.toFixed(2)} ${(C-len).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}" transform="rotate(-90 75 75)"><title>${esc(lab)}: ${v}</title></circle>`;off+=len;return g}).join("");
+ el.innerHTML=`<div class="dn"><svg viewBox="0 0 150 150" role="img" aria-label="Тип відповідей">${segs}<text x="75" y="76" text-anchor="middle" class="dnb">${tot}</text><text x="75" y="95" text-anchor="middle" class="dns">відповідей</text></svg>
+ <ul class="lg">${parts.map(([lab,v,col])=>`<li><i style="background:${col}"></i>${esc(lab)}<b>${v}</b><span>${pct(v,tot)}</span></li>`).join("")}</ul></div>`}
+function trend(el,fl){const per=Math.max(F().p,7),days=[];for(let i=per-1;i>=0;i--)days.push(day(new Date(Date.now()-i*864e5).toISOString()));
+ const S=[["inv_at","Інвайти","var(--i3)"],["acc_at","Прийняли","var(--ac)"],["rep_at","Відповіли","var(--ok)"]];
+ const cnt=S.map(([k])=>{const c={};for(const l of fl){const d=day(l[k]);if(d)c[d]=(c[d]||0)+1}return days.map(d=>c[d]||0)});
+ const max=Math.max(1,...cnt.flat()),step=Math.max(1,Math.ceil(max/4)),top=step*Math.ceil(max/step);
+ const W=640,H=200,pl=30,pb=22,pt=8,cw=(W-pl)/days.length,bw=Math.max(2,Math.min(12,(cw-4)/3)),y=v=>H-pb-(H-pb-pt)*v/top;
+ let g="";for(let v=0;v<=top;v+=step)g+=`<line x1="${pl}" x2="${W}" y1="${y(v)}" y2="${y(v)}" class="gl"/><text x="${pl-6}" y="${y(v)+3.5}" text-anchor="end" class="ax">${v}</text>`;
+ days.forEach((d,i)=>{S.forEach(([,lab,col],j)=>{const v=cnt[j][i];if(v)g+=`<rect x="${(pl+i*cw+(cw-3*bw)/2+j*bw).toFixed(1)}" y="${y(v).toFixed(1)}" width="${bw.toFixed(1)}" height="${(H-pb-y(v)).toFixed(1)}" rx="1.5" style="fill:${col}"><title>${DM(d)} · ${lab}: ${v}</title></rect>`});
+  if(i%Math.ceil(days.length/8)===0||i===days.length-1)g+=`<text x="${(pl+i*cw+cw/2).toFixed(1)}" y="${H-6}" text-anchor="middle" class="ax">${DM(d)}</text>`});
+ el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Інвайти, прийняті й відповіді по днях">${g}</svg>
+ <div class="lgh">${S.map(([,lab,col],j)=>`<span><i style="background:${col}"></i>${lab}: ${cnt[j].reduce((a,b)=>a+b,0)}</span>`).join("")}<span class="m">за ${per} дн.</span></div>`}
 function overview(){camps();
  const fl=FL(),ev=FE(),fun=(D.steps||[]).map(([k,label])=>[label,fl.filter(l=>(l.reach||[]).includes(k)).length]);
  const f=Object.fromEntries(fun.length?fun:D.funnel);const L=fl.length;
@@ -349,6 +401,7 @@ function overview(){camps();
  const by=Object.fromEntries(days.map(d=>[d,{day:d,viewed:0,invited:0,accepted:0,message:0,replied:0}]));
  for(const e of ev){const d=new Date(e.t).toLocaleDateString("sv-SE",{timeZone:"Europe/Warsaw"}),k=e.kind.startsWith("message")?"message":e.kind.startsWith("viewed")?"viewed":e.kind;if(by[d]&&k in by[d])by[d][k]++}
  $("days").innerHTML=days.map(d=>by[d]).map(d=>`<tr><td class="wide"><b>${new Date(d.day).toLocaleDateString("uk-UA",{weekday:"short",day:"2-digit",month:"2-digit"})}</b></td><td class="n" data-k="Перегляди">${d.viewed}</td><td class="n" data-k="Інвайти">${d.invited}</td><td class="n" data-k="Прийняли">${d.accepted}</td><td class="n" data-k="Повідомл.">${d.message}</td><td class="n" data-k="Відповіді">${d.replied}</td></tr>`).join("");
+ results(fl);
 }
 function next(l){if(["replied","done","skipped","expired"].includes(l.stage))return "—";if(l.stage==="queued")return "за чергою";if(!l.next_at)return "—";
  return new Date(l.next_at)<=new Date()?"зараз, у найближчу робочу годину":when(l.next_at)}
@@ -362,53 +415,13 @@ function leads(){
  for(const b of $("leads").querySelectorAll("[data-lead]"))armed(b,()=>act(b.dataset.stop==="1"?"api/lead/stop":"api/lead/resume",{q:b.dataset.lead}))
 }
 function replies(){
- const r=FL().filter(l=>l.stage==="replied").sort((a,b)=>(b.replied_at||"").localeCompare(a.replied_at||""));
+ const r=FL().filter(l=>l.replied).sort((a,b)=>(b.rep_at||"").localeCompare(a.rep_at||""));
  $("n-rp").textContent=r.length;
- $("replies").innerHTML=r.map(l=>`<tr><td data-k="Коли">${when(l.replied_at)}</td><td class="wide who"><a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.name)}</a><div class="m">${esc(l.role)}</div></td><td class="wide">${esc(l.company)}</td><td data-k="Акаунт">${NAME[l.owner]}</td></tr>`).join("")
+ const sel=(l,f,opts,cur)=>`<select class="rsel" data-key="${esc(l.pid)}" data-f="${f}" aria-label="${f==="reply_type"?"Тип відповіді":"Результат"}"><option value="">—</option>${opts.map(([v,lab])=>`<option value="${v}"${cur===v?" selected":""}>${lab}</option>`).join("")}</select>`;
+ $("replies").innerHTML=r.map(l=>`<tr><td data-k="Коли">${when(l.rep_at)}</td><td class="wide who"><a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.name)}</a><div class="m">${F().k?"":esc(CN(l.campaign))+" · "}${esc(l.role)}</div>${l.their_text?`<div class="quote">«${esc(l.their_text)}»</div>`:""}${l.last_from==="us"?`<div class="m">Останнім писали ви, ${when(l.last_at)}</div>`:""}</td><td class="wide">${esc(l.company)}</td><td data-k="Акаунт">${NAME[l.owner]}</td>
+  <td data-k="Тип">${sel(l,"reply_type",RT.map(([v,lab])=>[v,lab]),l.reply_type)}${l.reply_auto&&l.reply_type?`<div class="m">визначено автоматично</div>`:""}</td><td data-k="Результат">${sel(l,"status",OUT,l.outcome)}</td></tr>`).join("")
   ||`<tr><td class="empty">Відповідей поки немає. Коли хтось відповість, він з'явиться тут, а сіквенс для нього зупиниться. Відповідати людині ви будете самі в LinkedIn.</td></tr>`;
-}
-function log(){
- $("log").innerHTML=FE().slice(0,200).map(e=>`<li><time>${when(e.t)}</time><span><b>${NAME[e.account]||esc(e.account)}</b> · ${esc(e.kind)}${e.name?` · ${esc(e.name)}`:""}${e.company?` <span class="m">@ ${esc(e.company)}</span>`:""}${e.note?` <span class="m">${esc(e.note)}</span>`:""}</span></li>`).join("")
-  ||`<li class="empty">Подій ще немає. Перша дія буде в робочі години.</li>`;
-}
-function research(){const r=D.research||{};
- $("rs-sched").textContent=(r.last_scrape?`Останній збір job-бордів: ${when(r.last_scrape)}. Наступний: ${when(r.next_scrape)}. `:"Перший збір job-бордів агент зробить найближчим проходом. ")+"Агент проходить кожні 6 годин: збирає нові компанії, оцінює їх, планує пошук у LinkedIn і додає нових людей у кампанію.";
- bars($("rs-src"),r.by_source||[]);bars($("rs-ver"),r.verdicts||[]);bars($("rs-fit"),r.fit_progress||[]);bars($("rs-lead"),r.lead_sources||[]);
- const k=(r.queue||{}).by_kind||{};bars($("rs-q"),[["Пошук ЛПРів у компанії",k.people||0],["Сторінка компанії і штат",k.company||0],["Профілі людей із сайтів",k.match||0],["Запити агента",k.icp||0]]);
- $("rs-qs").innerHTML=(r.queries||[]).map(q=>`<li><time>${q.status==="done"?esc(q.results)+" людей":"чекає"}</time><span>${esc(q.q)}</span></li>`).join("")||`<li class="empty">Агент складе запити, коли компанії з пулу закінчаться.</li>`;
- $("rs-log").innerHTML=(r.log||[]).map(e=>`<li><time>${when(e.t)}</time><span><b>${esc(e.action)}</b> · ${esc(e.detail)}${e.why?`<div class="m">${esc(e.why)}</div>`:""}</span></li>`).join("")||`<li class="empty">Рішень ще немає. Перший прохід агента через кілька хвилин після старту сервісу.</li>`}
-const STG={m1:["Повідомлення 1","після прийняття","щойно прийняв"],f1:["Повідомлення 2","день 3",""],f2:["Повідомлення 3","день 6",""],f3:["Повідомлення 4","день 9","останнє"]};
-const LANG={pl:"Польська",en:"Англійська",uk:"Українська"};
-let EDIT=null;
-function opts(sel,pairs){const v=sel.value,key=pairs.map(p=>p.join("=")).join("|");if(sel.dataset.k!==key){sel.innerHTML="";for(const [val,lab] of pairs)sel.add(new Option(lab,val));sel.dataset.k=key}
- if(pairs.some(p=>p[0]===v))sel.value=v}
-function msgs(force){if(EDIT&&!force)return;
- const mc=$("mc");if(!mc.options.length){for(const c of D.campaigns||[])mc.add(new Option(c.name,c.id));if(F().k)mc.value=F().k}
- const pick=D.leads.find(l=>l.name+" · "+l.company===$("mq").value);
- if(pick)mc.value=pick.campaign;
- const C=(D.campaigns||[]).find(c=>c.id===mc.value)||{tracks:{},all_langs:[],stages:[]};
- opts($("mt"),Object.entries(C.tracks).map(([t,lab])=>[t,`${t} · ${lab}`]));opts($("ml"),C.all_langs.map(l=>[l,LANG[l]||l]));
- if(pick){$("mt").value=pick.track;$("ml").value=pick.lang}
- const cid=mc.value,t=$("mt").value,lg=$("ml").value,seq=(D.sequences||{})[cid]||{};
- $("mlist").innerHTML=D.leads.filter(l=>l.campaign===cid).map(l=>`<option value="${esc(l.name+" · "+l.company)}">`).join("");
- $("mhint").textContent=(pick?`Так ${pick.name} побачить повідомлення (варіант ${pick.track}, ${pick.lang.toUpperCase()}, пише ${NAME[pick.owner]}). Етап зараз: ${pick.stage_label}. `
-  :`Шаблон кампанії «${CN(cid)}». Виділене підставляється для кожного ліда окремо. `)+"Зміни тексту діють з наступного надісланого повідомлення.";
- const fill=txt=>{let h=esc(txt);const sub=(k,v)=>{h=h.split(esc(k)).join(v)};
-  if(pick){sub("{personal_line}",`<mark>${esc(pick.personal_line)}</mark>`);sub("{first_name}",`<mark>${esc(pick.first_name)}</mark>`);sub("{company}",`<mark>${esc(pick.company_short)}</mark>`);sub("{note}",`<mark>${esc(pick.note)}</mark>`)}
-  else for(const k of ["{personal_line}","{first_name}","{company}","{note}"])sub(k,`<mark>${k}</mark>`);return h};
- $("msgs").innerHTML=C.stages.map(k=>{const [label,day,hint]=C.invite_note&&k==="m1"?["Повідомлення в інвайті","з інвайтом","до 300 символів"]:STG[k]||[k,"",""],key=`${t}-${lg}-${k}`,txt=seq[key]||"";
-  let state="";if(pick){const at=(pick.sent||{})[k];state=at?`<div class="mstate"><span class="pill p-ok">Надіслано ${when(at)}</span></div>`:["replied","skipped","expired"].includes(pick.stage)?`<div class="mstate m">Не надсилатиметься: ${esc(pick.stage_label.toLowerCase())}</div>`:`<div class="mstate m">Ще не надіслано</div>`}
-  const body=EDIT===key?`<div class="medit"><textarea id="medit" aria-label="Текст: ${esc(label)}">${esc(txt)}</textarea>
-    <div class="cacts"><button type="button" class="btn pri" data-save="${esc(key)}">Зберегти</button><button type="button" class="btn" data-cancel>Скасувати</button>
-    <span class="m">Підстановки: {first_name}, {company}, {personal_line}, {note}${C.invite_note?` · <span id="mlen"></span>`:""}</span></div></div>`
-   :`${txt?`<div class="bubble">${fill(txt)}</div>`:`<div class="bubble m">Тексту ще немає. Поки його нема, ліди з варіантом ${esc(t)} і мовою ${lg.toUpperCase()} не отримають навіть інвайту.</div>`}
-    <div class="cacts" style="margin-top:6px"><button type="button" class="btn sm" data-edit="${esc(key)}">${txt?"Редагувати":"Написати текст"}</button></div>`;
-  return `<div class="msg"><div class="rail"><b>${day}</b><span>${hint}</span></div><div><div class="m" style="margin-bottom:4px">${label}</div>${body}${state}</div></div>`}).join("")||`<p class="m">У кампанії немає етапів.</p>`;
- for(const b of $("msgs").querySelectorAll("[data-edit]"))b.onclick=()=>{EDIT=b.dataset.edit;msgs(true);$("medit").focus()};
- if($("medit")&&$("mlen")){const n=()=>{$("mlen").textContent=`шаблон ${$("medit").value.trim().length} символів, з ім'ям і компанією має вміститись у 300`};n();$("medit").oninput=n}
- for(const b of $("msgs").querySelectorAll("[data-cancel]"))b.onclick=()=>{EDIT=null;msgs(true)};
- for(const b of $("msgs").querySelectorAll("[data-save]"))b.onclick=async()=>{const text=$("medit").value;if(!text.trim())return toast("Текст порожній: нічого не збережено.",true);
-  b.disabled=true;if(await act("api/message",{campaign:cid,key:b.dataset.save,text}))EDIT=null;else b.disabled=false;msgs(true)};
+ for(const s of $("replies").querySelectorAll("select[data-key]"))s.onchange=()=>act("api/lead/crm",{key:s.dataset.key,[s.dataset.f]:s.value});
 }
 let TT=0;function toast(text,bad){const t=$("toast");t.textContent=text;t.className="toast"+(bad?" err":"");t.hidden=false;clearTimeout(TT);TT=setTimeout(()=>t.hidden=true,bad?9000:5000)}
 async function act(path,body){try{const r=await fetch(path,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
