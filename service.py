@@ -8,6 +8,8 @@ Env:
   QUEUE_CAP (default 15)                    - starting actions per account per day; the queue ramps it up itself
   SERVICE_TOKEN                             - required to read anything over HTTP
   SHEET_TOKEN                               - opens /api/sheet only: the Google Sheet's lead statuses (crm.py)
+  SHEET_GOOGLE_EMAILS, SHEET_GOOGLE_AUD     - or a Google ID token of these accounts (default fortwiseai@gmail.com),
+                                              issued to that Apps Script project (its client id; unset: any, logged)
   GITHUB_TOKEN, GITHUB_REPO, GITHUB_BRANCH  - where company-level results are pushed (contents API)
   PORT                                      - set by Railway
 
@@ -204,6 +206,33 @@ ACTIONS = {"/api/campaign": None, "/api/lead/stop": None, "/api/lead/resume": No
            "/api/offers": None}
 
 
+_google_seen = {}
+
+
+def google_ok(id_token):
+    """A Google ID token (ScriptApp.getIdentityToken in the sheet's Apps Script) of an allowed account, so the sheet
+    needs no shared secret. Checked with Google's tokeninfo and remembered until it expires."""
+    if not id_token or id_token.count(".") != 2:
+        return False
+    now = time.time()
+    if _google_seen.get(id_token, 0) > now:
+        return True
+    try:
+        info = requests.get("https://oauth2.googleapis.com/tokeninfo", params={"id_token": id_token}, timeout=10).json()
+    except (requests.RequestException, ValueError):
+        return False
+    emails = [e.strip().lower() for e in os.environ.get("SHEET_GOOGLE_EMAILS", "fortwiseai@gmail.com").split(",")]
+    aud = os.environ.get("SHEET_GOOGLE_AUD")
+    ok = (info.get("iss") in ("accounts.google.com", "https://accounts.google.com") and info.get("email_verified") in ("true", True)
+          and (info.get("email") or "").lower() in emails and int(info.get("exp") or 0) > now
+          and (info.get("aud") == aud if aud else str(info.get("aud", "")).endswith(".apps.googleusercontent.com")))
+    if ok:
+        if not aud:
+            log(f"sheet: Google ID token accepted for aud {info.get('aud')} (set SHEET_GOOGLE_AUD to pin it)")
+        _google_seen[id_token] = int(info["exp"])
+    return ok
+
+
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         token = os.environ.get("SERVICE_TOKEN")
@@ -286,7 +315,8 @@ class Handler(BaseHTTPRequestHandler):
     def _sheet(self, query, changes=None):
         """The Google Sheet (sheets/crm.gs): GET the rows, POST {changes} to save hand edits and get the rows back."""
         tokens = [t for t in (os.environ.get("SHEET_TOKEN"), os.environ.get("SERVICE_TOKEN")) if t]
-        if self.headers.get("Authorization") not in [f"Bearer {t}" for t in tokens]:
+        given = self.headers.get("Authorization") or ""
+        if given not in [f"Bearer {t}" for t in tokens] and not google_ok(given.removeprefix("Bearer ")):
             return self._send(401, b"unauthorized", "text/plain")
         import crm
         cid = dict(p.split("=", 1) for p in query.split("&") if "=" in p).get("campaign", "websummit")

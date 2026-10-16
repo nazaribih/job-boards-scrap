@@ -7,8 +7,9 @@
  * invited yet stops the campaign for them.
  *
  * Install as a standalone project on the account that owns the sheet (script.google.com -> New project; Extensions ->
- * Apps Script on the sheet fails while several Google accounts are signed in): paste this file, add the script
- * property TOKEN = SHEET_TOKEN (Project settings -> Script properties), then run setup() once and allow access.
+ * Apps Script on the sheet fails while several Google accounts are signed in): paste this file and appsscript.json,
+ * then run setup() once and allow access. Requests are signed with the account's Google ID token, which the server
+ * checks (fortwiseai@gmail.com), so there is no secret to paste.
  */
 const SHEET_ID = '11KwJMd6abswTQMo1hk85XUjEwTv1rduBkWPDaYzVW9c';
 const URL = 'https://jb-leads-queue-production.up.railway.app/api/sheet?campaign=websummit';
@@ -39,7 +40,6 @@ function ss_() {
 
 // run once from the editor: adds the triggers, lays the sheet out and syncs
 function setup() {
-  if (!PropertiesService.getScriptProperties().getProperty('TOKEN')) throw new Error('Add the script property TOKEN first.');
   ScriptApp.getProjectTriggers().forEach(t => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('sync').timeBased().everyMinutes(10).create();
   ScriptApp.newTrigger('edited').forSpreadsheet(SHEET_ID).onEdit().create();
@@ -103,8 +103,7 @@ function changes_(sh) {
 }
 
 function call_(changes) {
-  const token = PropertiesService.getScriptProperties().getProperty('TOKEN');
-  if (!token) throw new Error('Add the script property TOKEN, then run setup().');
+  const token = ScriptApp.getIdentityToken();
   const r = UrlFetchApp.fetch(URL, {
     method: 'post', contentType: 'application/json', muteHttpExceptions: true,
     headers: {Authorization: 'Bearer ' + token}, payload: JSON.stringify({changes}),
