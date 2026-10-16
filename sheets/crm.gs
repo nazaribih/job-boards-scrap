@@ -18,7 +18,7 @@ const SHEET_ID = '11KwJMd6abswTQMo1hk85XUjEwTv1rduBkWPDaYzVW9c';
 const URL = 'https://jb-leads-queue-production.up.railway.app/api/sheet?campaign=all';
 const TAB = 'Leads';
 const DASH = 'Dashboard';
-const LAYOUT = '2';  // bump when the columns change: the next sync lays the sheet out again
+const LAYOUT = '3';  // bump when the columns change: the next sync lays the sheet out again
 // [header, row field, width]; Status, Reply type, Next step and Notes are edited by hand
 const COLS = [
   ['Status', 'status', 140], ['Campaign', 'campaign', 120], ['Name', 'name', 170], ['Company', 'company', 160],
@@ -70,8 +70,8 @@ function sync() {
     const props = PropertiesService.getScriptProperties();
     let changes;
     if (props.getProperty('LAYOUT') !== LAYOUT) {
-      const old = ss_().getSheetByName(OLD.tab);
-      changes = old ? changes_(old, OLD.key, OLD.cols) : [];
+      const old = ss_().getSheetByName(OLD.tab), cur = ss_().getSheetByName(TAB);
+      changes = old ? changes_(old, OLD.key, OLD.cols) : cur ? changes_(cur, C['key'], EDITABLE) : [];
       layout_();
       props.setProperty('LAYOUT', LAYOUT);
     } else {
@@ -246,7 +246,7 @@ function dashboard_() {
     d.insertChart(b.build());
   };
   chart(Charts.ChartType.BAR, 'D3:E8', 20, 1, 'Funnel', {colors: ['#2a78d6']});
-  chart(Charts.ChartType.PIE, 'D11:E14', 20, 5, 'Reply type',
+  chart(Charts.ChartType.PIE, 'D11:E14', 20, 7, 'Reply type',
         {legend: {position: 'right'}, colors: ['#57bb8a', '#bdbdbd', '#e06666'], pieHole: 0.45});
   chart(Charts.ChartType.COLUMN, 'G3:J11', 36, 1, 'Weekly: invites, accepted, replies',
         {legend: {position: 'bottom'}, colors: ['#9aa9bd', '#2a78d6', '#57bb8a'], width: 960});
