@@ -29,7 +29,7 @@ DB = os.environ.get("DATABASE_URL") if os.environ.get("JB_STORE") == "db" else N
 PERSONAL = {"people_cache.json", "site_people.json", "seed_people.json", "decision_makers.csv", "lang_cache.json",
             "pline_cache.json", "voc_cache.json", "exclude_outreach_helper.json", "icp_hits.json", "outreach_export.json",
             "agent_queries.json", "agent_log.json", "agent_state.json", "linkedin_queue_state.json", "guard.json",
-            "pipeline_status.json", "websearch_cache.json"}
+            "pipeline_status.json", "websearch_cache.json", "crm.json"}
 LOGS = {"campaign.log": "campaign", "queue.log": "queue", "agent.out": "agent"}
 
 SCHEMA = """

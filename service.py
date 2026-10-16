@@ -7,6 +7,7 @@ Env:
   UNIPILE_DSN, UNIPILE_API_KEY, UNIPILE_ACCOUNT_ID_NAZARII, UNIPILE_ACCOUNT_ID_HLEB  - LinkedIn via Unipile
   QUEUE_CAP (default 15)                    - starting actions per account per day; the queue ramps it up itself
   SERVICE_TOKEN                             - required to read anything over HTTP
+  SHEET_TOKEN                               - opens /api/sheet only: the Google Sheet's lead statuses (crm.py)
   GITHUB_TOKEN, GITHUB_REPO, GITHUB_BRANCH  - where company-level results are pushed (contents API)
   PORT                                      - set by Railway
 
@@ -212,6 +213,8 @@ class Handler(BaseHTTPRequestHandler):
         given = dict(p.split("=", 1) for p in query.split("&") if "=" in p).get("token")
         cookie = next((c.split("=", 1)[1] for c in (self.headers.get("Cookie") or "").split("; ") if c.startswith("t=")), None)
         authed = token and (self.headers.get("Authorization") == f"Bearer {token}" or token in (given, cookie))
+        if path == "/api/sheet":
+            return self._sheet(query)
         if path == "/resume":
             if not authed:
                 return self._send(401, b"unauthorized", "text/plain")
@@ -280,9 +283,32 @@ class Handler(BaseHTTPRequestHandler):
         self._send(200, body, "text/csv" if name.endswith(".csv") else "application/json" if name.endswith(".json")
                    else "text/plain")
 
+    def _sheet(self, query, changes=None):
+        """The Google Sheet (sheets/crm.gs): GET the rows, POST {changes} to save hand edits and get the rows back."""
+        tokens = [t for t in (os.environ.get("SHEET_TOKEN"), os.environ.get("SERVICE_TOKEN")) if t]
+        if self.headers.get("Authorization") not in [f"Bearer {t}" for t in tokens]:
+            return self._send(401, b"unauthorized", "text/plain")
+        import crm
+        cid = dict(p.split("=", 1) for p in query.split("&") if "=" in p).get("campaign", "websummit")
+        try:
+            saved = crm.apply(cid, changes) if changes else None
+            res = crm.rows(cid)
+        except ValueError as e:
+            return self._json(400, {"ok": False, "error": str(e)})
+        if saved:
+            log(f"sheet: {json.dumps(saved)}")
+            res["saved"] = saved
+        return self._json(200, res)
+
     def do_POST(self):
         token = os.environ.get("SERVICE_TOKEN")
         path, _, query = self.path.partition("?")
+        if path == "/api/sheet":
+            try:
+                body = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
+            except ValueError:
+                return self._json(400, {"ok": False, "error": "body must be JSON"})
+            return self._sheet(query, body.get("changes") or [])
         cookie = next((c.split("=", 1)[1] for c in (self.headers.get("Cookie") or "").split("; ") if c.startswith("t=")), None)
         if not token or not (cookie == token or self.headers.get("Authorization") == f"Bearer {token}"):
             return self._send(401, b"unauthorized", "text/plain")

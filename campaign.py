@@ -622,7 +622,13 @@ class Campaign:
         if code in (401, 403, 429):
             self.trouble(account, code, body)
             return None
-        return any(not m.get("is_sender") for m in body.get("items") or [])
+        items = [m for m in body.get("items") or [] if m.get("timestamp")]
+        if items:  # the last message either way, for the lead sheet (crm.py)
+            last = max(items, key=lambda m: m["timestamp"])
+            ins = [m["timestamp"] for m in items if not m.get("is_sender")]
+            s["chat"] = {"last_from": "us" if last.get("is_sender") else "them", "last_at": last["timestamp"],
+                         "last_text": (last.get("text") or "")[:300], "last_in_at": max(ins, default=None)}
+        return any(not m.get("is_sender") for m in items)
 
     # ── actions ──
     def view(self, account, lead):
@@ -759,11 +765,14 @@ class Campaign:
             for c in body.get("items") or []:
                 if c.get("attendee_provider_id") in notes:
                     self.st(notes[c["attendee_provider_id"]])["chat_id"] = c["id"]
-        for l in mine.values():  # replies between scheduled messages, and to invitation notes
+        month_ago = (now() - dt.timedelta(days=30)).isoformat()
+        for l in mine.values():  # replies between scheduled messages and to invitation notes; recent conversations too
             s = self.st(l)
-            if s.get("chat_id") and (s["stage"].startswith("sent_") or s.get("note_sent") and s["stage"] in ("invited", "done")):
+            waiting = s["stage"].startswith("sent_") or s.get("note_sent") and s["stage"] in ("invited", "done")
+            talking = s["stage"] == "replied" and (s.get("replied_at") or "") > month_ago
+            if s.get("chat_id") and (waiting or talking):
                 r = self.replied(account, l)
-                if r:
+                if r and waiting:
                     s.update(stage="replied", replied_at=now().isoformat(), next_at=None)
                     self.reply_alert(account, l)
                     self.event(account, "replied", l)
