@@ -423,6 +423,49 @@ function replies(){
   ||`<tr><td class="empty">Відповідей поки немає. Коли хтось відповість, він з'явиться тут, а сіквенс для нього зупиниться. Відповідати людині ви будете самі в LinkedIn.</td></tr>`;
  for(const s of $("replies").querySelectorAll("select[data-key]"))s.onchange=()=>act("api/lead/crm",{key:s.dataset.key,[s.dataset.f]:s.value});
 }
+function log(){
+ $("log").innerHTML=FE().slice(0,200).map(e=>`<li><time>${when(e.t)}</time><span><b>${NAME[e.account]||esc(e.account)}</b> · ${esc(e.kind)}${e.name?` · ${esc(e.name)}`:""}${e.company?` <span class="m">@ ${esc(e.company)}</span>`:""}${e.note?` <span class="m">${esc(e.note)}</span>`:""}</span></li>`).join("")
+  ||`<li class="empty">Подій ще немає. Перша дія буде в робочі години.</li>`;
+}
+function research(){const r=D.research||{};
+ $("rs-sched").textContent=(r.last_scrape?`Останній збір job-бордів: ${when(r.last_scrape)}. Наступний: ${when(r.next_scrape)}. `:"Перший збір job-бордів агент зробить найближчим проходом. ")+"Агент проходить кожні 6 годин: збирає нові компанії, оцінює їх, планує пошук у LinkedIn і додає нових людей у кампанію.";
+ bars($("rs-src"),r.by_source||[]);bars($("rs-ver"),r.verdicts||[]);bars($("rs-fit"),r.fit_progress||[]);bars($("rs-lead"),r.lead_sources||[]);
+ const k=(r.queue||{}).by_kind||{};bars($("rs-q"),[["Пошук ЛПРів у компанії",k.people||0],["Сторінка компанії і штат",k.company||0],["Профілі людей із сайтів",k.match||0],["Запити агента",k.icp||0]]);
+ $("rs-qs").innerHTML=(r.queries||[]).map(q=>`<li><time>${q.status==="done"?esc(q.results)+" людей":"чекає"}</time><span>${esc(q.q)}</span></li>`).join("")||`<li class="empty">Агент складе запити, коли компанії з пулу закінчаться.</li>`;
+ $("rs-log").innerHTML=(r.log||[]).map(e=>`<li><time>${when(e.t)}</time><span><b>${esc(e.action)}</b> · ${esc(e.detail)}${e.why?`<div class="m">${esc(e.why)}</div>`:""}</span></li>`).join("")||`<li class="empty">Рішень ще немає. Перший прохід агента через кілька хвилин після старту сервісу.</li>`}
+const STG={m1:["Повідомлення 1","після прийняття","щойно прийняв"],f1:["Повідомлення 2","день 3",""],f2:["Повідомлення 3","день 6",""],f3:["Повідомлення 4","день 9","останнє"]};
+const LANG={pl:"Польська",en:"Англійська",uk:"Українська"};
+let EDIT=null;
+function opts(sel,pairs){const v=sel.value,key=pairs.map(p=>p.join("=")).join("|");if(sel.dataset.k!==key){sel.innerHTML="";for(const [val,lab] of pairs)sel.add(new Option(lab,val));sel.dataset.k=key}
+ if(pairs.some(p=>p[0]===v))sel.value=v}
+function msgs(force){if(EDIT&&!force)return;
+ const mc=$("mc");if(!mc.options.length){for(const c of D.campaigns||[])mc.add(new Option(c.name,c.id));if(F().k)mc.value=F().k}
+ const pick=D.leads.find(l=>l.name+" · "+l.company===$("mq").value);
+ if(pick)mc.value=pick.campaign;
+ const C=(D.campaigns||[]).find(c=>c.id===mc.value)||{tracks:{},all_langs:[],stages:[]};
+ opts($("mt"),Object.entries(C.tracks).map(([t,lab])=>[t,`${t} · ${lab}`]));opts($("ml"),C.all_langs.map(l=>[l,LANG[l]||l]));
+ if(pick){$("mt").value=pick.track;$("ml").value=pick.lang}
+ const cid=mc.value,t=$("mt").value,lg=$("ml").value,seq=(D.sequences||{})[cid]||{};
+ $("mlist").innerHTML=D.leads.filter(l=>l.campaign===cid).map(l=>`<option value="${esc(l.name+" · "+l.company)}">`).join("");
+ $("mhint").textContent=(pick?`Так ${pick.name} побачить повідомлення (варіант ${pick.track}, ${pick.lang.toUpperCase()}, пише ${NAME[pick.owner]}). Етап зараз: ${pick.stage_label}. `
+  :`Шаблон кампанії «${CN(cid)}». Виділене підставляється для кожного ліда окремо. `)+"Зміни тексту діють з наступного надісланого повідомлення.";
+ const fill=txt=>{let h=esc(txt);const sub=(k,v)=>{h=h.split(esc(k)).join(v)};
+  if(pick){sub("{personal_line}",`<mark>${esc(pick.personal_line)}</mark>`);sub("{first_name}",`<mark>${esc(pick.first_name)}</mark>`);sub("{company}",`<mark>${esc(pick.company_short)}</mark>`);sub("{note}",`<mark>${esc(pick.note)}</mark>`)}
+  else for(const k of ["{personal_line}","{first_name}","{company}","{note}"])sub(k,`<mark>${k}</mark>`);return h};
+ $("msgs").innerHTML=C.stages.map(k=>{const [label,day,hint]=C.invite_note&&k==="m1"?["Повідомлення в інвайті","з інвайтом","до 300 символів"]:STG[k]||[k,"",""],key=`${t}-${lg}-${k}`,txt=seq[key]||"";
+  let state="";if(pick){const at=(pick.sent||{})[k];state=at?`<div class="mstate"><span class="pill p-ok">Надіслано ${when(at)}</span></div>`:["replied","skipped","expired"].includes(pick.stage)?`<div class="mstate m">Не надсилатиметься: ${esc(pick.stage_label.toLowerCase())}</div>`:`<div class="mstate m">Ще не надіслано</div>`}
+  const body=EDIT===key?`<div class="medit"><textarea id="medit" aria-label="Текст: ${esc(label)}">${esc(txt)}</textarea>
+    <div class="cacts"><button type="button" class="btn pri" data-save="${esc(key)}">Зберегти</button><button type="button" class="btn" data-cancel>Скасувати</button>
+    <span class="m">Підстановки: {first_name}, {company}, {personal_line}, {note}${C.invite_note?` · <span id="mlen"></span>`:""}</span></div></div>`
+   :`${txt?`<div class="bubble">${fill(txt)}</div>`:`<div class="bubble m">Тексту ще немає. Поки його нема, ліди з варіантом ${esc(t)} і мовою ${lg.toUpperCase()} не отримають навіть інвайту.</div>`}
+    <div class="cacts" style="margin-top:6px"><button type="button" class="btn sm" data-edit="${esc(key)}">${txt?"Редагувати":"Написати текст"}</button></div>`;
+  return `<div class="msg"><div class="rail"><b>${day}</b><span>${hint}</span></div><div><div class="m" style="margin-bottom:4px">${label}</div>${body}${state}</div></div>`}).join("")||`<p class="m">У кампанії немає етапів.</p>`;
+ for(const b of $("msgs").querySelectorAll("[data-edit]"))b.onclick=()=>{EDIT=b.dataset.edit;msgs(true);$("medit").focus()};
+ if($("medit")&&$("mlen")){const n=()=>{$("mlen").textContent=`шаблон ${$("medit").value.trim().length} символів, з ім'ям і компанією має вміститись у 300`};n();$("medit").oninput=n}
+ for(const b of $("msgs").querySelectorAll("[data-cancel]"))b.onclick=()=>{EDIT=null;msgs(true)};
+ for(const b of $("msgs").querySelectorAll("[data-save]"))b.onclick=async()=>{const text=$("medit").value;if(!text.trim())return toast("Текст порожній: нічого не збережено.",true);
+  b.disabled=true;if(await act("api/message",{campaign:cid,key:b.dataset.save,text}))EDIT=null;else b.disabled=false;msgs(true)};
+}
 let TT=0;function toast(text,bad){const t=$("toast");t.textContent=text;t.className="toast"+(bad?" err":"");t.hidden=false;clearTimeout(TT);TT=setTimeout(()=>t.hidden=true,bad?9000:5000)}
 async function act(path,body){try{const r=await fetch(path,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
   const j=await r.json().catch(()=>({error:r.status===401?"немає доступу, відкрийте посилання з токеном ще раз":"помилка "+r.status}));
